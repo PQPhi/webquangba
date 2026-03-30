@@ -1,0 +1,16 @@
+D:\Git\webquangba\src\TanThuanDong.Application\bin\Debug\net8.0\TanThuanDong.Application.deps.json
+D:\Git\webquangba\src\TanThuanDong.Application\bin\Debug\net8.0\TanThuanDong.Application.dll
+D:\Git\webquangba\src\TanThuanDong.Application\bin\Debug\net8.0\TanThuanDong.Application.pdb
+D:\Git\webquangba\src\TanThuanDong.Application\bin\Debug\net8.0\TanThuanDong.Domain.dll
+D:\Git\webquangba\src\TanThuanDong.Application\bin\Debug\net8.0\TanThuanDong.Domain.pdb
+D:\Git\webquangba\src\TanThuanDong.Application\obj\Debug\net8.0\TanThuanDong.Application.csproj.AssemblyReference.cache
+D:\Git\webquangba\src\TanThuanDong.Application\obj\Debug\net8.0\TanThuanDong.Application.GeneratedMSBuildEditorConfig.editorconfig
+D:\Git\webquangba\src\TanThuanDong.Application\obj\Debug\net8.0\TanThuanDong.Application.AssemblyInfoInputs.cache
+D:\Git\webquangba\src\TanThuanDong.Application\obj\Debug\net8.0\TanThuanDong.Application.AssemblyInfo.cs
+D:\Git\webquangba\src\TanThuanDong.Application\obj\Debug\net8.0\TanThuanDong.Application.csproj.CoreCompileInputs.cache
+D:\Git\webquangba\src\TanThuanDong.Application\obj\Debug\net8.0\TanThuan.C723CFD4.Up2Date
+D:\Git\webquangba\src\TanThuanDong.Application\obj\Debug\net8.0\TanThuanDong.Application.dll
+D:\Git\webquangba\src\TanThuanDong.Application\obj\Debug\net8.0\refint\TanThuanDong.Application.dll
+D:\Git\webquangba\src\TanThuanDong.Application\obj\Debug\net8.0\TanThuanDong.Application.pdb
+D:\Git\webquangba\src\TanThuanDong.Application\obj\Debug\net8.0\ref\TanThuanDong.Application.dll
+D:\Git\webquangba\src\TanThuanDong.Application\obj\Debug\net8.0\TanThuanDong.Application.sourcelink.json

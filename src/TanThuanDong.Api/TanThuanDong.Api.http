@@ -1,0 +1,6 @@
+@TanThuanDong.Api_HostAddress = http://localhost:5230
+
+GET {{TanThuanDong.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
