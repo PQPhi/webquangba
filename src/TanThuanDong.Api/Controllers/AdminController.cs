@@ -20,17 +20,30 @@ public class AdminController(
     [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Editor},{SystemRoles.Viewer}")]
     public async Task<IActionResult> Dashboard()
     {
-        var totalViews = await db.Articles.SumAsync(x => x.ViewCount);
-        var monthlyApplications = await db.Applications
+        var totalViews = await db.Articles
+            .Select(x => (int?)x.ViewCount)
+            .SumAsync() ?? 0;
+
+        var monthlyApplicationsRaw = await db.Applications
             .Where(x => x.CreatedAt >= DateTime.UtcNow.AddMonths(-6))
             .GroupBy(x => new { x.CreatedAt.Year, x.CreatedAt.Month })
             .Select(g => new
             {
-                month = $"{g.Key.Month:D2}/{g.Key.Year}",
+                g.Key.Year,
+                g.Key.Month,
                 value = g.Count()
             })
-            .OrderBy(x => x.month)
+            .OrderBy(x => x.Year)
+            .ThenBy(x => x.Month)
             .ToListAsync();
+
+        var monthlyApplications = monthlyApplicationsRaw
+            .Select(x => new
+            {
+                month = $"{x.Month:D2}/{x.Year}",
+                x.value
+            })
+            .ToList();
 
         return Ok(new
         {
@@ -97,6 +110,22 @@ public class AdminController(
         return Ok(new { message = "Tạo tài khoản thành công." });
     }
 
+    [HttpPatch("users/{id}/active")]
+    [Authorize(Roles = SystemRoles.Admin)]
+    public async Task<IActionResult> UpdateUserActiveStatus(string id, [FromBody] UpdateUserActiveRequest request)
+    {
+        var user = await userManager.FindByIdAsync(id);
+        if (user is null)
+        {
+            return NotFound(new { message = "Không tìm thấy người dùng." });
+        }
+
+        user.IsActive = request.IsActive;
+        await userManager.UpdateAsync(user);
+
+        return Ok(new { message = "Cập nhật trạng thái người dùng thành công." });
+    }
+
     [HttpPatch("applications/{id:int}/status")]
     [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Editor}")]
     public async Task<IActionResult> UpdateApplicationStatus(int id, [FromBody] UpdateApplicationStatusRequest request)
@@ -135,6 +164,117 @@ public class AdminController(
             .ToListAsync();
 
         return Ok(items);
+    }
+
+    [HttpGet("articles")]
+    [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Editor},{SystemRoles.Viewer}")]
+    public async Task<IActionResult> GetArticles()
+    {
+        var items = await db.Articles
+            .Include(x => x.Category)
+            .OrderByDescending(x => x.PublishedAt)
+            .Select(x => new
+            {
+                x.Id,
+                x.Title,
+                x.Summary,
+                x.ThumbnailUrl,
+                x.IsPublished,
+                x.PublishedAt,
+                x.CreatedBy,
+                categoryId = x.CategoryId,
+                categoryName = x.Category != null ? x.Category.Name : string.Empty
+            })
+            .ToListAsync();
+
+        return Ok(items);
+    }
+
+    [HttpPost("articles")]
+    [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Editor}")]
+    public async Task<IActionResult> CreateArticle([FromBody] CreateArticleRequest request)
+    {
+        var categoryExists = await db.Categories.AnyAsync(x => x.Id == request.CategoryId);
+        if (!categoryExists)
+        {
+            return BadRequest(new { message = "Danh mục không hợp lệ." });
+        }
+
+        var article = new Article
+        {
+            CategoryId = request.CategoryId,
+            Title = request.Title,
+            Summary = request.Summary,
+            Content = request.Content,
+            ThumbnailUrl = request.ThumbnailUrl,
+            IsPublished = request.IsPublished,
+            PublishedAt = DateTime.UtcNow,
+            CreatedBy = User.Identity?.Name ?? "admin"
+        };
+
+        await db.Articles.AddAsync(article);
+        await db.SaveChangesAsync();
+
+        return Ok(new { message = "Đăng bài thành công." });
+    }
+
+    [HttpPatch("articles/{id:int}/publish")]
+    [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Editor}")]
+    public async Task<IActionResult> UpdateArticlePublishStatus(int id, [FromBody] UpdateArticlePublishRequest request)
+    {
+        var article = await db.Articles.FirstOrDefaultAsync(x => x.Id == id);
+        if (article is null)
+        {
+            return NotFound(new { message = "Không tìm thấy bài viết." });
+        }
+
+        article.IsPublished = request.IsPublished;
+        if (request.IsPublished)
+        {
+            article.PublishedAt = DateTime.UtcNow;
+        }
+
+        await db.SaveChangesAsync();
+        return Ok(new { message = "Cập nhật trạng thái bài viết thành công." });
+    }
+
+    [HttpGet("categories")]
+    [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Editor},{SystemRoles.Viewer}")]
+    public async Task<IActionResult> GetCategories()
+    {
+        var categories = await db.Categories
+            .OrderBy(x => x.Name)
+            .Select(x => new { x.Id, x.Name, x.Slug })
+            .ToListAsync();
+
+        return Ok(categories);
+    }
+
+    [HttpPost("categories")]
+    [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Editor}")]
+    public async Task<IActionResult> CreateCategory([FromBody] CreateCategoryRequest request)
+    {
+        var slug = string.IsNullOrWhiteSpace(request.Slug)
+            ? request.Name.Trim().ToLowerInvariant().Replace(" ", "-")
+            : request.Slug.Trim().ToLowerInvariant();
+
+        var exists = await db.Categories.AnyAsync(x => x.Slug == slug);
+        if (exists)
+        {
+            return BadRequest(new { message = "Slug danh mục đã tồn tại." });
+        }
+
+        var category = new Category
+        {
+            Name = request.Name.Trim(),
+            Slug = slug,
+            Description = request.Description.Trim()
+        };
+
+        await db.Categories.AddAsync(category);
+        await db.SaveChangesAsync();
+
+        return Ok(new { message = "Tạo danh mục thành công.", category.Id, category.Name, category.Slug });
     }
 
     [HttpGet("comments")]
@@ -185,5 +325,32 @@ public class AdminController(
     public class UpdateApplicationStatusRequest
     {
         public ApplicationStatus Status { get; set; } = ApplicationStatus.Processing;
+    }
+
+    public class UpdateUserActiveRequest
+    {
+        public bool IsActive { get; set; }
+    }
+
+    public class CreateArticleRequest
+    {
+        public int CategoryId { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string Summary { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+        public string ThumbnailUrl { get; set; } = string.Empty;
+        public bool IsPublished { get; set; } = true;
+    }
+
+    public class UpdateArticlePublishRequest
+    {
+        public bool IsPublished { get; set; }
+    }
+
+    public class CreateCategoryRequest
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Slug { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
     }
 }

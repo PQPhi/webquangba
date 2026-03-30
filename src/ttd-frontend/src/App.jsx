@@ -15,6 +15,69 @@ import './App.css'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
+const APPLICATION_STATUS_MAP = {
+  1: 'Cho duyet',
+  2: 'Da tiep nhan',
+  3: 'Dang xu ly',
+  4: 'Da duyet',
+  5: 'Khong duyet',
+}
+
+const APPLICATION_STATUS_CODE_BY_NAME = {
+  New: 1,
+  Received: 2,
+  Processing: 3,
+  Completed: 4,
+  Rejected: 5,
+}
+
+const APPLICATION_STATUS_OPTIONS = [
+  { value: 1, label: 'Cho duyet' },
+  { value: 3, label: 'Dang xu ly' },
+  { value: 4, label: 'Da duyet' },
+  { value: 5, label: 'Khong duyet' },
+]
+
+function formatApplicationStatus(value) {
+  if (typeof value === 'number') {
+    return APPLICATION_STATUS_MAP[value] ?? `Khac (${value})`
+  }
+
+  if (typeof value === 'string') {
+    const code = Number(value)
+    if (!Number.isNaN(code) && APPLICATION_STATUS_MAP[code]) {
+      return APPLICATION_STATUS_MAP[code]
+    }
+
+    const enumCode = APPLICATION_STATUS_CODE_BY_NAME[value]
+    if (enumCode) {
+      return APPLICATION_STATUS_MAP[enumCode]
+    }
+
+    return value
+  }
+
+  return 'Chua cap nhat'
+}
+
+function statusCodeFromValue(value) {
+  if (typeof value === 'number') {
+    return value
+  }
+
+  const parsed = Number(value)
+  if (!Number.isNaN(parsed)) {
+    return parsed
+  }
+
+  const enumCode = APPLICATION_STATUS_CODE_BY_NAME[value]
+  if (enumCode) {
+    return enumCode
+  }
+
+  return 1
+}
+
 function GatewayPage() {
   return (
     <main className="gateway-bg">
@@ -47,6 +110,14 @@ function UserPortal() {
   const [applicationId, setApplicationId] = useState('')
   const [newsFilter, setNewsFilter] = useState('All')
   const [mediaFilter, setMediaFilter] = useState('All')
+  const [applyMessage, setApplyMessage] = useState('')
+  const [applyForm, setApplyForm] = useState({
+    serviceProcedureId: '',
+    applicantName: '',
+    applicantPhone: '',
+    applicantEmail: '',
+    note: '',
+  })
 
   useEffect(() => {
     const load = async () => {
@@ -60,6 +131,9 @@ function UserPortal() {
       setNews(newsRes)
       setServices(serviceRes)
       setMedia(mediaRes)
+      if (serviceRes.length > 0) {
+        setApplyForm((prev) => ({ ...prev, serviceProcedureId: String(serviceRes[0].id) }))
+      }
     }
 
     load().catch(() => {
@@ -99,6 +173,35 @@ function UserPortal() {
       setApplicationStatus(result)
     } catch {
       setApplicationStatus({ message: 'Khong tim thay ho so' })
+    }
+  }
+
+  const applyService = async (event) => {
+    event.preventDefault()
+    setApplyMessage('')
+
+    if (!applyForm.serviceProcedureId || !applyForm.applicantName || !applyForm.applicantPhone) {
+      setApplyMessage('Vui long nhap day du thong tin bat buoc.')
+      return
+    }
+
+    try {
+      const payload = {
+        ...applyForm,
+        serviceProcedureId: Number(applyForm.serviceProcedureId),
+      }
+      const result = await publicApi.applyService(payload)
+      setApplyMessage(`${result.message} Ma ho so cua ban: ${result.applicationId}`)
+      setApplicationId(String(result.applicationId))
+      setApplyForm((prev) => ({
+        ...prev,
+        applicantName: '',
+        applicantPhone: '',
+        applicantEmail: '',
+        note: '',
+      }))
+    } catch (error) {
+      setApplyMessage(error?.response?.data?.message ?? 'Khong gui duoc ho so. Vui long thu lai.')
     }
   }
 
@@ -220,21 +323,84 @@ function UserPortal() {
             </article>
           ))}
         </div>
-        <form className="status-form" onSubmit={checkStatus}>
-          <label htmlFor="hoso">Tra cuu trang thai ho so</label>
-          <input
-            id="hoso"
-            value={applicationId}
-            onChange={(event) => setApplicationId(event.target.value)}
-            placeholder="Nhap ma ho so"
-          />
-          <button type="submit">Tra cuu</button>
-        </form>
-        {applicationStatus && (
-          <div className="status-result">
-            {applicationStatus.message ?? `Trang thai: ${applicationStatus.status}`}
-          </div>
-        )}
+
+        <div className="service-actions-grid">
+          <form className="application-form" onSubmit={applyService}>
+            <h4>Gui don truc tiep tren web</h4>
+            <label htmlFor="service-id">Thu tuc</label>
+            <select
+              id="service-id"
+              value={applyForm.serviceProcedureId}
+              onChange={(event) =>
+                setApplyForm((prev) => ({ ...prev, serviceProcedureId: event.target.value }))
+              }
+            >
+              {services.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.code} - {item.name}
+                </option>
+              ))}
+            </select>
+
+            <label htmlFor="applicant-name">Ho ten</label>
+            <input
+              id="applicant-name"
+              value={applyForm.applicantName}
+              onChange={(event) =>
+                setApplyForm((prev) => ({ ...prev, applicantName: event.target.value }))
+              }
+              placeholder="Nhap ho ten"
+            />
+
+            <label htmlFor="applicant-phone">So dien thoai</label>
+            <input
+              id="applicant-phone"
+              value={applyForm.applicantPhone}
+              onChange={(event) =>
+                setApplyForm((prev) => ({ ...prev, applicantPhone: event.target.value }))
+              }
+              placeholder="Nhap so dien thoai"
+            />
+
+            <label htmlFor="applicant-email">Email</label>
+            <input
+              id="applicant-email"
+              value={applyForm.applicantEmail}
+              onChange={(event) =>
+                setApplyForm((prev) => ({ ...prev, applicantEmail: event.target.value }))
+              }
+              placeholder="Nhap email"
+            />
+
+            <label htmlFor="applicant-note">Noi dung ho so</label>
+            <textarea
+              id="applicant-note"
+              value={applyForm.note}
+              onChange={(event) => setApplyForm((prev) => ({ ...prev, note: event.target.value }))}
+              placeholder="Mo ta thong tin can giai quyet"
+            />
+
+            <button type="submit">Gui don</button>
+            {applyMessage && <p className="helper-text">{applyMessage}</p>}
+          </form>
+
+          <form className="status-form" onSubmit={checkStatus}>
+            <label htmlFor="hoso">Tra cuu trang thai ho so</label>
+            <input
+              id="hoso"
+              value={applicationId}
+              onChange={(event) => setApplicationId(event.target.value)}
+              placeholder="Nhap ma ho so"
+            />
+            <button type="submit">Tra cuu</button>
+            {applicationStatus && (
+              <div className="status-result">
+                {applicationStatus.message ??
+                  `Trang thai: ${formatApplicationStatus(applicationStatus.status)}`}
+              </div>
+            )}
+          </form>
+        </div>
       </section>
 
       <section id="thu-vien" className="panel">
@@ -299,7 +465,33 @@ function AdminPortal() {
   const [error, setError] = useState('')
   const [dashboard, setDashboard] = useState(null)
   const [applications, setApplications] = useState([])
+  const [users, setUsers] = useState([])
+  const [articles, setArticles] = useState([])
+  const [categories, setCategories] = useState([])
   const [applicationFilter, setApplicationFilter] = useState('All')
+  const [activeAdminTab, setActiveAdminTab] = useState('applications')
+  const [statusDrafts, setStatusDrafts] = useState({})
+  const [adminMessage, setAdminMessage] = useState('')
+  const [articleForm, setArticleForm] = useState({
+    categoryId: '',
+    title: '',
+    summary: '',
+    content: '',
+    thumbnailUrl: '',
+    isPublished: true,
+  })
+  const [userForm, setUserForm] = useState({
+    fullName: '',
+    email: '',
+    phoneNumber: '',
+    password: '',
+    role: 'Viewer',
+  })
+  const [categoryForm, setCategoryForm] = useState({
+    name: '',
+    slug: '',
+    description: '',
+  })
   const token = tokenStore.get()
 
   useEffect(() => {
@@ -307,13 +499,41 @@ function AdminPortal() {
       return
     }
 
+    setError('')
+
     const load = async () => {
-      const [dashRes, appRes] = await Promise.all([
+      const [dashRes, appRes, userRes, articleRes, categoryRes] = await Promise.allSettled([
         adminApi.getDashboard(),
         adminApi.getApplications(),
+        adminApi.getUsers(),
+        adminApi.getArticles(),
+        adminApi.getCategories(),
       ])
-      setDashboard(dashRes)
-      setApplications(appRes)
+
+      if (dashRes.status === 'fulfilled') {
+        setDashboard(dashRes.value)
+      }
+      if (appRes.status === 'fulfilled') {
+        setApplications(appRes.value)
+      }
+      if (userRes.status === 'fulfilled') {
+        setUsers(userRes.value)
+      }
+      if (articleRes.status === 'fulfilled') {
+        setArticles(articleRes.value)
+      }
+      if (categoryRes.status === 'fulfilled') {
+        setCategories(categoryRes.value)
+        if (categoryRes.value.length > 0) {
+          setArticleForm((prev) => ({ ...prev, categoryId: String(categoryRes.value[0].id) }))
+        }
+      }
+
+      if (dashRes.status === 'rejected' || appRes.status === 'rejected') {
+        setError('Khong tai duoc du lieu dashboard')
+      } else {
+        setError('')
+      }
     }
 
     load().catch(() => {
@@ -339,7 +559,7 @@ function AdminPortal() {
   }, [dashboard])
 
   const applicationStatuses = useMemo(() => {
-    const statuses = applications.map((item) => item.status).filter(Boolean)
+    const statuses = applications.map((item) => formatApplicationStatus(item.status)).filter(Boolean)
     return ['All', ...new Set(statuses)]
   }, [applications])
 
@@ -348,8 +568,44 @@ function AdminPortal() {
       return applications
     }
 
-    return applications.filter((item) => item.status === applicationFilter)
+    return applications.filter((item) => formatApplicationStatus(item.status) === applicationFilter)
   }, [applicationFilter, applications])
+
+  const reloadAdminData = async () => {
+    const [dashRes, appRes, userRes, articleRes, categoryRes] = await Promise.allSettled([
+      adminApi.getDashboard(),
+      adminApi.getApplications(),
+      adminApi.getUsers(),
+      adminApi.getArticles(),
+      adminApi.getCategories(),
+    ])
+
+    if (dashRes.status === 'fulfilled') {
+      setDashboard(dashRes.value)
+    }
+    if (appRes.status === 'fulfilled') {
+      setApplications(appRes.value)
+    }
+    if (userRes.status === 'fulfilled') {
+      setUsers(userRes.value)
+    }
+    if (articleRes.status === 'fulfilled') {
+      setArticles(articleRes.value)
+    }
+    if (categoryRes.status === 'fulfilled') {
+      setCategories(categoryRes.value)
+      if (categoryRes.value.length > 0) {
+        setArticleForm((prev) => ({
+          ...prev,
+          categoryId: prev.categoryId || String(categoryRes.value[0].id),
+        }))
+      }
+    }
+
+    if (dashRes.status === 'fulfilled' && appRes.status === 'fulfilled') {
+      setError('')
+    }
+  }
 
   const login = async (event) => {
     event.preventDefault()
@@ -367,6 +623,116 @@ function AdminPortal() {
   const logout = () => {
     tokenStore.clear()
     window.location.reload()
+  }
+
+  const updateApplicationStatus = async (applicationId) => {
+    const status = statusDrafts[applicationId] ?? 1
+    setAdminMessage('')
+    try {
+      await adminApi.updateApplicationStatus(applicationId, { status })
+      await reloadAdminData()
+      setAdminMessage('Da cap nhat trang thai ho so thanh cong.')
+    } catch (updateError) {
+      setAdminMessage(updateError?.response?.data?.message ?? 'Khong cap nhat duoc trang thai.')
+    }
+  }
+
+  const submitArticle = async (event) => {
+    event.preventDefault()
+    setAdminMessage('')
+
+    if (!articleForm.categoryId) {
+      setAdminMessage('Vui long tao danh muc truoc khi dang bai.')
+      return
+    }
+
+    try {
+      await adminApi.createArticle({
+        ...articleForm,
+        categoryId: Number(articleForm.categoryId),
+      })
+      setArticleForm((prev) => ({
+        ...prev,
+        title: '',
+        summary: '',
+        content: '',
+        thumbnailUrl: '',
+      }))
+      await reloadAdminData()
+      setAdminMessage('Da dang bai viet thanh cong.')
+    } catch (submitError) {
+      setAdminMessage(submitError?.response?.data?.message ?? 'Khong dang duoc bai viet.')
+    }
+  }
+
+  const submitCategory = async (event) => {
+    event.preventDefault()
+    setAdminMessage('')
+
+    if (!categoryForm.name.trim()) {
+      setAdminMessage('Ten danh muc la bat buoc.')
+      return
+    }
+
+    try {
+      const created = await adminApi.createCategory(categoryForm)
+      setCategoryForm({
+        name: '',
+        slug: '',
+        description: '',
+      })
+      await reloadAdminData()
+      setArticleForm((prev) => ({ ...prev, categoryId: String(created.id) }))
+      setAdminMessage('Da tao danh muc moi.')
+    } catch (submitError) {
+      setAdminMessage(submitError?.response?.data?.message ?? 'Khong tao duoc danh muc.')
+    }
+  }
+
+  const toggleArticlePublish = async (id, isPublished) => {
+    setAdminMessage('')
+    try {
+      await adminApi.updateArticlePublish(id, { isPublished: !isPublished })
+      await reloadAdminData()
+      setAdminMessage('Da cap nhat trang thai bai viet.')
+    } catch (toggleError) {
+      setAdminMessage(toggleError?.response?.data?.message ?? 'Khong cap nhat duoc bai viet.')
+    }
+  }
+
+  const submitUser = async (event) => {
+    event.preventDefault()
+    setAdminMessage('')
+    try {
+      await adminApi.createUser(userForm)
+      setUserForm({
+        fullName: '',
+        email: '',
+        phoneNumber: '',
+        password: '',
+        role: 'Viewer',
+      })
+      await reloadAdminData()
+      setAdminMessage('Da tao nguoi dung moi.')
+    } catch (submitError) {
+      const errors = submitError?.response?.data?.errors
+      if (Array.isArray(errors)) {
+        setAdminMessage(errors.join(' | '))
+      } else {
+        setAdminMessage(submitError?.response?.data?.message ?? 'Khong tao duoc nguoi dung.')
+      }
+    }
+  }
+
+  const toggleUserActive = async (userId, isActive) => {
+    setAdminMessage('')
+    try {
+      await adminApi.updateUserActive(userId, { isActive: !isActive })
+      await reloadAdminData()
+      setAdminMessage('Da cap nhat trang thai tai khoan.')
+    } catch (toggleError) {
+      setAdminMessage(toggleError?.response?.data?.message ?? 'Khong cap nhat duoc tai khoan.')
+    }
   }
 
   if (!token) {
@@ -429,6 +795,33 @@ function AdminPortal() {
         <Bar data={chartData} />
       </section>
 
+      <section className="panel admin-tabs">
+        <button
+          type="button"
+          className={activeAdminTab === 'applications' ? 'chip is-active' : 'chip'}
+          onClick={() => setActiveAdminTab('applications')}
+        >
+          Quan ly ho so
+        </button>
+        <button
+          type="button"
+          className={activeAdminTab === 'articles' ? 'chip is-active' : 'chip'}
+          onClick={() => setActiveAdminTab('articles')}
+        >
+          Quan ly bai viet
+        </button>
+        <button
+          type="button"
+          className={activeAdminTab === 'users' ? 'chip is-active' : 'chip'}
+          onClick={() => setActiveAdminTab('users')}
+        >
+          Quan ly nguoi dung
+        </button>
+      </section>
+
+      {adminMessage && <p className="helper-text">{adminMessage}</p>}
+
+      {activeAdminTab === 'applications' && (
       <section className="admin-table">
         <h3>Danh sach ho so</h3>
         <div className="chip-group">
@@ -451,6 +844,7 @@ function AdminPortal() {
               <th>Nguoi nop</th>
               <th>Dich vu</th>
               <th>Trang thai</th>
+              <th>Cap nhat</th>
             </tr>
           </thead>
           <tbody>
@@ -459,12 +853,216 @@ function AdminPortal() {
                 <td>{item.id}</td>
                 <td>{item.applicantName}</td>
                 <td>{item.serviceName}</td>
-                <td>{item.status}</td>
+                <td>{formatApplicationStatus(item.status)}</td>
+                <td>
+                  <div className="inline-actions">
+                    <select
+                      value={statusDrafts[item.id] ?? statusCodeFromValue(item.status)}
+                      onChange={(event) =>
+                        setStatusDrafts((prev) => ({
+                          ...prev,
+                          [item.id]: Number(event.target.value),
+                        }))
+                      }
+                    >
+                      {APPLICATION_STATUS_OPTIONS.map((statusOption) => (
+                        <option key={statusOption.value} value={statusOption.value}>
+                          {statusOption.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button type="button" onClick={() => updateApplicationStatus(item.id)}>
+                      Luu
+                    </button>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </section>
+      )}
+
+      {activeAdminTab === 'articles' && (
+        <section className="admin-table">
+          <h3>Danh muc bai viet</h3>
+          <form className="admin-form admin-form-grid" onSubmit={submitCategory}>
+            <input
+              value={categoryForm.name}
+              onChange={(event) =>
+                setCategoryForm((prev) => ({ ...prev, name: event.target.value }))
+              }
+              placeholder="Ten danh muc"
+            />
+            <input
+              value={categoryForm.slug}
+              onChange={(event) =>
+                setCategoryForm((prev) => ({ ...prev, slug: event.target.value }))
+              }
+              placeholder="Slug (tu dong neu bo trong)"
+            />
+            <input
+              value={categoryForm.description}
+              onChange={(event) =>
+                setCategoryForm((prev) => ({ ...prev, description: event.target.value }))
+              }
+              placeholder="Mo ta ngan"
+            />
+            <button type="submit">Them danh muc</button>
+          </form>
+
+          <h3>Dang bai viet moi</h3>
+          <form className="admin-form" onSubmit={submitArticle}>
+            <select
+              value={articleForm.categoryId}
+              onChange={(event) =>
+                setArticleForm((prev) => ({ ...prev, categoryId: event.target.value }))
+              }
+            >
+              {categories.length === 0 && <option value="">Chua co danh muc</option>}
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+            <input
+              value={articleForm.title}
+              onChange={(event) => setArticleForm((prev) => ({ ...prev, title: event.target.value }))}
+              placeholder="Tieu de bai viet"
+            />
+            <input
+              value={articleForm.thumbnailUrl}
+              onChange={(event) =>
+                setArticleForm((prev) => ({ ...prev, thumbnailUrl: event.target.value }))
+              }
+              placeholder="Link hinh dai dien"
+            />
+            <textarea
+              value={articleForm.summary}
+              onChange={(event) => setArticleForm((prev) => ({ ...prev, summary: event.target.value }))}
+              placeholder="Tom tat"
+            />
+            <textarea
+              value={articleForm.content}
+              onChange={(event) => setArticleForm((prev) => ({ ...prev, content: event.target.value }))}
+              placeholder="Noi dung bai viet"
+            />
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={articleForm.isPublished}
+                onChange={(event) =>
+                  setArticleForm((prev) => ({ ...prev, isPublished: event.target.checked }))
+                }
+              />
+              Dang cong khai
+            </label>
+            <button type="submit" disabled={categories.length === 0}>
+              Dang bai
+            </button>
+          </form>
+
+          <h3>Danh sach bai viet</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Tieu de</th>
+                <th>Danh muc</th>
+                <th>Trang thai</th>
+                <th>Hanh dong</th>
+              </tr>
+            </thead>
+            <tbody>
+              {articles.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.id}</td>
+                  <td>{item.title}</td>
+                  <td>{item.categoryName}</td>
+                  <td>{item.isPublished ? 'Da dang' : 'Ban nhap'}</td>
+                  <td>
+                    <button
+                      type="button"
+                      onClick={() => toggleArticlePublish(item.id, item.isPublished)}
+                    >
+                      {item.isPublished ? 'An bai' : 'Dang lai'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+
+      {activeAdminTab === 'users' && (
+        <section className="admin-table">
+          <h3>Tao nguoi dung moi</h3>
+          <form className="admin-form admin-form-grid" onSubmit={submitUser}>
+            <input
+              value={userForm.fullName}
+              onChange={(event) => setUserForm((prev) => ({ ...prev, fullName: event.target.value }))}
+              placeholder="Ho ten"
+            />
+            <input
+              value={userForm.email}
+              onChange={(event) => setUserForm((prev) => ({ ...prev, email: event.target.value }))}
+              placeholder="Email"
+            />
+            <input
+              value={userForm.phoneNumber}
+              onChange={(event) =>
+                setUserForm((prev) => ({ ...prev, phoneNumber: event.target.value }))
+              }
+              placeholder="So dien thoai"
+            />
+            <input
+              type="password"
+              value={userForm.password}
+              onChange={(event) => setUserForm((prev) => ({ ...prev, password: event.target.value }))}
+              placeholder="Mat khau"
+            />
+            <select
+              value={userForm.role}
+              onChange={(event) => setUserForm((prev) => ({ ...prev, role: event.target.value }))}
+            >
+              <option value="Admin">Admin</option>
+              <option value="Editor">Editor</option>
+              <option value="Viewer">Viewer</option>
+            </select>
+            <button type="submit">Tao tai khoan</button>
+          </form>
+
+          <h3>Danh sach nguoi dung</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Ho ten</th>
+                <th>Email</th>
+                <th>Vai tro</th>
+                <th>Trang thai</th>
+                <th>Hanh dong</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((user) => (
+                <tr key={user.id}>
+                  <td>{user.fullName}</td>
+                  <td>{user.email}</td>
+                  <td>{Array.isArray(user.roles) ? user.roles.join(', ') : ''}</td>
+                  <td>{user.isActive ? 'Dang hoat dong' : 'Da khoa'}</td>
+                  <td>
+                    <button type="button" onClick={() => toggleUserActive(user.id, user.isActive)}>
+                      {user.isActive ? 'Khoa tai khoan' : 'Mo khoa'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
     </main>
   )
 }
