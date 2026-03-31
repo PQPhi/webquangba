@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Link, NavLink, Navigate, Route, Routes } from 'react-router-dom'
 import { Bar } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -16,11 +16,11 @@ import './App.css'
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 const APPLICATION_STATUS_MAP = {
-  1: 'Cho duyet',
-  2: 'Da tiep nhan',
-  3: 'Dang xu ly',
-  4: 'Da duyet',
-  5: 'Khong duyet',
+  1: 'Chờ duyệt',
+  2: 'Đã tiếp nhận',
+  3: 'Đang xử lý',
+  4: 'Đã duyệt',
+  5: 'Không duyệt',
 }
 
 const APPLICATION_STATUS_CODE_BY_NAME = {
@@ -32,15 +32,33 @@ const APPLICATION_STATUS_CODE_BY_NAME = {
 }
 
 const APPLICATION_STATUS_OPTIONS = [
-  { value: 1, label: 'Cho duyet' },
-  { value: 3, label: 'Dang xu ly' },
-  { value: 4, label: 'Da duyet' },
-  { value: 5, label: 'Khong duyet' },
+  { value: 1, label: 'Chờ duyệt' },
+  { value: 3, label: 'Đang xử lý' },
+  { value: 4, label: 'Đã duyệt' },
+  { value: 5, label: 'Không duyệt' },
 ]
+
+const PORTAL_NAV_ITEMS = [
+  { key: 'home', to: '/portal', label: 'Trang chủ' },
+  { key: 'intro', to: '/portal/gioi-thieu', label: 'Giới thiệu' },
+  { key: 'news', to: '/portal/tin-tuc', label: 'Tin tức' },
+  { key: 'services', to: '/portal/dich-vu-hanh-chinh', label: 'Dịch vụ hành chính' },
+  { key: 'library', to: '/portal/thu-vien', label: 'Thư viện' },
+  { key: 'contact', to: '/portal/lien-he', label: 'Liên hệ' },
+]
+
+const PORTAL_PAGE_TITLES = {
+  home: 'Trang chủ',
+  intro: 'Giới thiệu',
+  news: 'Tin tức',
+  services: 'Dịch vụ hành chính',
+  library: 'Thư viện',
+  contact: 'Liên hệ',
+}
 
 function formatApplicationStatus(value) {
   if (typeof value === 'number') {
-    return APPLICATION_STATUS_MAP[value] ?? `Khac (${value})`
+    return APPLICATION_STATUS_MAP[value] ?? `Khác (${value})`
   }
 
   if (typeof value === 'string') {
@@ -57,7 +75,7 @@ function formatApplicationStatus(value) {
     return value
   }
 
-  return 'Chua cap nhat'
+  return 'Chưa cập nhật'
 }
 
 function statusCodeFromValue(value) {
@@ -82,18 +100,18 @@ function GatewayPage() {
   return (
     <main className="gateway-bg">
       <section className="gateway-card">
-        <p className="eyebrow">Cao Lanh - Dong Thap</p>
-        <h1>Cong Thong Tin Xa Tan Thuan Dong</h1>
+        <p className="eyebrow">Cao Lãnh - Đồng Tháp</p>
+        <h1>Cổng Thông Tin Xã Tân Thuận Đông</h1>
         <p>
-          Nen tang quang ba thong tin dia phuong, dich vu hanh chinh va kenh
-          tuong tac cong dan.
+          Nền tảng quảng bá thông tin địa phương, dịch vụ hành chính và kênh
+          tương tác công dân.
         </p>
         <div className="gateway-actions">
           <a href="/portal" target="_blank" rel="noreferrer" className="btn-primary">
-            Mo tab nguoi dung
+            Mở tab người dùng
           </a>
           <a href="/admin" target="_blank" rel="noreferrer" className="btn-outline">
-            Mo tab quan tri
+            Mở tab quản trị
           </a>
         </div>
       </section>
@@ -101,7 +119,7 @@ function GatewayPage() {
   )
 }
 
-function UserPortal() {
+function UserPortal({ activeSection }) {
   const [home, setHome] = useState(null)
   const [news, setNews] = useState([])
   const [services, setServices] = useState([])
@@ -111,6 +129,7 @@ function UserPortal() {
   const [newsFilter, setNewsFilter] = useState('All')
   const [mediaFilter, setMediaFilter] = useState('All')
   const [applyMessage, setApplyMessage] = useState('')
+  const [clockText, setClockText] = useState('')
   const [applyForm, setApplyForm] = useState({
     serviceProcedureId: '',
     applicantName: '',
@@ -140,6 +159,57 @@ function UserPortal() {
       setHome(null)
     })
   }, [])
+
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date()
+      setClockText(
+        now.toLocaleString('vi-VN', {
+          weekday: 'long',
+          hour: '2-digit',
+          minute: '2-digit',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        }),
+      )
+    }
+
+    tick()
+    const timer = window.setInterval(tick, 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    const revealItems = document.querySelectorAll('.reveal')
+    if (!revealItems.length) {
+      return undefined
+    }
+
+    if (!('IntersectionObserver' in window)) {
+      revealItems.forEach((item) => item.classList.add('in-view'))
+      return undefined
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('in-view')
+            observer.unobserve(entry.target)
+          }
+        })
+      },
+      { threshold: 0.18 },
+    )
+
+    revealItems.forEach((item) => observer.observe(item))
+    return () => observer.disconnect()
+  }, [news, services, media, activeSection])
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [activeSection])
 
   const newsCategories = useMemo(() => {
     const categories = news.map((item) => item.category).filter(Boolean)
@@ -172,7 +242,7 @@ function UserPortal() {
       const result = await publicApi.getServiceStatus(applicationId)
       setApplicationStatus(result)
     } catch {
-      setApplicationStatus({ message: 'Khong tim thay ho so' })
+      setApplicationStatus({ message: 'Không tìm thấy hồ sơ' })
     }
   }
 
@@ -181,7 +251,7 @@ function UserPortal() {
     setApplyMessage('')
 
     if (!applyForm.serviceProcedureId || !applyForm.applicantName || !applyForm.applicantPhone) {
-      setApplyMessage('Vui long nhap day du thong tin bat buoc.')
+      setApplyMessage('Vui lòng nhập đầy đủ thông tin bắt buộc.')
       return
     }
 
@@ -191,7 +261,7 @@ function UserPortal() {
         serviceProcedureId: Number(applyForm.serviceProcedureId),
       }
       const result = await publicApi.applyService(payload)
-      setApplyMessage(`${result.message} Ma ho so cua ban: ${result.applicationId}`)
+      setApplyMessage(`${result.message} Mã hồ sơ của bạn: ${result.applicationId}`)
       setApplicationId(String(result.applicationId))
       setApplyForm((prev) => ({
         ...prev,
@@ -201,260 +271,553 @@ function UserPortal() {
         note: '',
       }))
     } catch (error) {
-      setApplyMessage(error?.response?.data?.message ?? 'Khong gui duoc ho so. Vui long thu lai.')
+      setApplyMessage(error?.response?.data?.message ?? 'Không gửi được hồ sơ. Vui lòng thử lại.')
     }
   }
 
+  const renderPortalPage = () => {
+    if (activeSection === 'intro') {
+      return (
+        <section className="panel reveal">
+          <div className="intro-layout">
+            <div>
+              <h3>Giới thiệu địa phương</h3>
+              <p>
+                Tân Thuận Đông có vị trí thuận lợi kết nối trung tâm thành phố Cao Lãnh,
+                phát triển nông nghiệp công nghệ cao và dịch vụ thương mại nông thôn.
+              </p>
+            </div>
+            <figure>
+              <img
+                src="https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1000&q=80"
+                alt="Mô hình canh tác hiện đại"
+                loading="lazy"
+              />
+            </figure>
+          </div>
+        </section>
+      )
+    }
+
+    if (activeSection === 'news') {
+      return (
+        <section className="panel reveal">
+          <h3>Tin tức nổi bật</h3>
+          <div className="chip-group">
+            {newsCategories.map((category) => (
+              <button
+                key={category}
+                type="button"
+                className={newsFilter === category ? 'chip is-active' : 'chip'}
+                onClick={() => setNewsFilter(category)}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+          <div className="grid-3">
+            {filteredNews.map((item) => (
+              <article key={item.id} className="news-card">
+                <img src={item.thumbnailUrl} alt={item.title} />
+                <div>
+                  <small>{item.category}</small>
+                  <h4>{item.title}</h4>
+                  <p>{item.summary}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )
+    }
+
+    if (activeSection === 'services') {
+      return (
+        <section className="panel reveal">
+          <h3>Dịch vụ hành chính</h3>
+          <div className="service-table">
+            {services.map((service) => (
+              <article key={service.id}>
+                <h4>
+                  {service.code} - {service.name}
+                </h4>
+                <p>{service.description}</p>
+                <p>
+                  Biểu mẫu: <a href={service.formUrl}>Tải xuống</a>
+                </p>
+              </article>
+            ))}
+          </div>
+
+          <div className="service-actions-grid">
+            <form className="application-form" onSubmit={applyService}>
+              <h4>Gửi đơn trực tiếp trên web</h4>
+              <label htmlFor="service-id">Thủ tục</label>
+              <select
+                id="service-id"
+                value={applyForm.serviceProcedureId}
+                onChange={(event) =>
+                  setApplyForm((prev) => ({ ...prev, serviceProcedureId: event.target.value }))
+                }
+              >
+                {services.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.code} - {item.name}
+                  </option>
+                ))}
+              </select>
+
+              <label htmlFor="applicant-name">Họ tên</label>
+              <input
+                id="applicant-name"
+                value={applyForm.applicantName}
+                onChange={(event) =>
+                  setApplyForm((prev) => ({ ...prev, applicantName: event.target.value }))
+                }
+                placeholder="Nhập họ tên"
+              />
+
+              <label htmlFor="applicant-phone">Số điện thoại</label>
+              <input
+                id="applicant-phone"
+                value={applyForm.applicantPhone}
+                onChange={(event) =>
+                  setApplyForm((prev) => ({ ...prev, applicantPhone: event.target.value }))
+                }
+                placeholder="Nhập số điện thoại"
+              />
+
+              <label htmlFor="applicant-email">Email</label>
+              <input
+                id="applicant-email"
+                value={applyForm.applicantEmail}
+                onChange={(event) =>
+                  setApplyForm((prev) => ({ ...prev, applicantEmail: event.target.value }))
+                }
+                placeholder="Nhập email"
+              />
+
+              <label htmlFor="applicant-note">Nội dung hồ sơ</label>
+              <textarea
+                id="applicant-note"
+                value={applyForm.note}
+                onChange={(event) =>
+                  setApplyForm((prev) => ({ ...prev, note: event.target.value }))
+                }
+                placeholder="Mô tả thông tin cần giải quyết"
+              />
+
+              <button type="submit">Gửi đơn</button>
+              {applyMessage && <p className="helper-text">{applyMessage}</p>}
+            </form>
+
+            <form className="status-form" onSubmit={checkStatus}>
+              <label htmlFor="hoso">Tra cứu trạng thái hồ sơ</label>
+              <input
+                id="hoso"
+                value={applicationId}
+                onChange={(event) => setApplicationId(event.target.value)}
+                placeholder="Nhập mã hồ sơ"
+              />
+              <button type="submit">Tra cứu</button>
+              {applicationStatus && (
+                <div className="status-result">
+                  {applicationStatus.message ??
+                    `Trạng thái: ${formatApplicationStatus(applicationStatus.status)}`}
+                </div>
+              )}
+            </form>
+          </div>
+        </section>
+      )
+    }
+
+    if (activeSection === 'library') {
+      return (
+        <section className="panel reveal">
+          <h3>Thư viện hình ảnh và video</h3>
+          <div className="chip-group">
+            <button
+              type="button"
+              className={mediaFilter === 'All' ? 'chip is-active' : 'chip'}
+              onClick={() => setMediaFilter('All')}
+            >
+              Tất cả
+            </button>
+            <button
+              type="button"
+              className={mediaFilter === 'Image' ? 'chip is-active' : 'chip'}
+              onClick={() => setMediaFilter('Image')}
+            >
+              Hình ảnh
+            </button>
+            <button
+              type="button"
+              className={mediaFilter === 'Video' ? 'chip is-active' : 'chip'}
+              onClick={() => setMediaFilter('Video')}
+            >
+              Video
+            </button>
+          </div>
+          <div className="gallery">
+            {filteredMedia.map((item) => (
+              <article key={item.id}>
+                {item.type === 'Video' ? (
+                  <iframe src={item.url} title={item.title} allowFullScreen />
+                ) : (
+                  <img src={item.url} alt={item.title} />
+                )}
+                <p>{item.title}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      )
+    }
+
+    if (activeSection === 'contact') {
+      return (
+        <section className="panel contact-grid reveal">
+          <div>
+            <h3>Liên hệ UBND xã</h3>
+            <p>Địa chỉ: Xã Tân Thuận Đông, TP Cao Lãnh, Đồng Tháp</p>
+            <p>Điện thoại: 0277 3 888 999</p>
+            <p>Email: ubnd.tanthuanadong@dongthap.gov.vn</p>
+          </div>
+          <iframe
+            title="Google Maps"
+            src="https://www.google.com/maps?q=Cao%20Lanh%20Dong%20Thap&output=embed"
+            loading="lazy"
+          />
+        </section>
+      )
+    }
+
+    return (
+      <>
+        <section className="hero-section reveal">
+          <div className="hero-copy">
+            <p className="eyebrow">Trang người dùng</p>
+            <h1>{home?.bannerTitle ?? 'Đang tải dữ liệu...'}</h1>
+            <p>{home?.commune ?? 'Thông tin tổng quan xã Tân Thuận Đông.'}</p>
+            <div className="hero-actions">
+              <Link to="/portal/tin-tuc" className="btn-primary">
+                Xem tin nổi bật
+              </Link>
+              <Link to="/portal/dich-vu-hanh-chinh" className="btn-outline">
+                Thủ tục nhanh
+              </Link>
+            </div>
+          </div>
+          <div className="hero-side">
+            <figure className="hero-media">
+              <img
+                src="https://images.unsplash.com/photo-1472653525502-f9c3c7f4f2c8?auto=format&fit=crop&w=1200&q=80"
+                alt="Cảnh quan nông nghiệp tại Đồng Tháp"
+                loading="lazy"
+              />
+            </figure>
+            <div className="stats">
+              <article>
+                <strong>{home?.statistics?.Population ?? '--'}</strong>
+                <span>Dân số</span>
+              </article>
+              <article>
+                <strong>{home?.statistics?.AreaKm2 ?? '--'}</strong>
+                <span>Diện tích km2</span>
+              </article>
+              <article>
+                <strong>{home?.statistics?.OnlineApplications ?? '--'}</strong>
+                <span>Hồ sơ trực tuyến</span>
+              </article>
+              <article>
+                <strong>{home?.statistics?.ActiveServices ?? '--'}</strong>
+                <span>Dịch vụ đang mở</span>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section className="panel quick-actions reveal">
+          <Link to="/portal/dich-vu-hanh-chinh">
+            <h4>Nộp hồ sơ trực tuyến</h4>
+            <p>Thực hiện thủ tục hành chính ngay trên cổng thông tin.</p>
+          </Link>
+          <Link to="/portal/dich-vu-hanh-chinh">
+            <h4>Tra cứu tiến độ</h4>
+            <p>Theo dõi kết quả xử lý qua mã hồ sơ nhanh chóng.</p>
+          </Link>
+          <Link to="/portal/tin-tuc">
+            <h4>Lịch tiếp công dân</h4>
+            <p>Cập nhật lịch làm việc, lịch họp và thông báo mới nhất.</p>
+          </Link>
+          <Link to="/portal/lien-he">
+            <h4>Kênh phản ánh kiến nghị</h4>
+            <p>Gửi ý kiến trực tiếp đến bộ phận tiếp nhận của xã.</p>
+          </Link>
+        </section>
+
+        <section className="panel reveal">
+          <div className="intro-layout">
+            <div>
+              <h3>Giới thiệu địa phương</h3>
+              <p>
+                Tân Thuận Đông có vị trí thuận lợi kết nối trung tâm thành phố Cao Lãnh,
+                phát triển nông nghiệp công nghệ cao và dịch vụ thương mại nông thôn.
+              </p>
+            </div>
+            <figure>
+              <img
+                src="https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1000&q=80"
+                alt="Mô hình canh tác hiện đại"
+                loading="lazy"
+              />
+            </figure>
+          </div>
+        </section>
+
+        <section className="panel reveal">
+          <h3>Tin tức nổi bật</h3>
+          <div className="chip-group">
+            {newsCategories.map((category) => (
+              <button
+                key={category}
+                type="button"
+                className={newsFilter === category ? 'chip is-active' : 'chip'}
+                onClick={() => setNewsFilter(category)}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+          <div className="grid-3">
+            {filteredNews.map((item) => (
+              <article key={item.id} className="news-card">
+                <img src={item.thumbnailUrl} alt={item.title} />
+                <div>
+                  <small>{item.category}</small>
+                  <h4>{item.title}</h4>
+                  <p>{item.summary}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel reveal">
+          <h3>Dịch vụ hành chính</h3>
+          <div className="service-table">
+            {services.map((service) => (
+              <article key={service.id}>
+                <h4>
+                  {service.code} - {service.name}
+                </h4>
+                <p>{service.description}</p>
+                <p>
+                  Biểu mẫu: <a href={service.formUrl}>Tải xuống</a>
+                </p>
+              </article>
+            ))}
+          </div>
+
+          <div className="service-actions-grid">
+            <form className="application-form" onSubmit={applyService}>
+              <h4>Gửi đơn trực tiếp trên web</h4>
+              <label htmlFor="service-id-home">Thủ tục</label>
+              <select
+                id="service-id-home"
+                value={applyForm.serviceProcedureId}
+                onChange={(event) =>
+                  setApplyForm((prev) => ({ ...prev, serviceProcedureId: event.target.value }))
+                }
+              >
+                {services.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.code} - {item.name}
+                  </option>
+                ))}
+              </select>
+
+              <label htmlFor="applicant-name-home">Họ tên</label>
+              <input
+                id="applicant-name-home"
+                value={applyForm.applicantName}
+                onChange={(event) =>
+                  setApplyForm((prev) => ({ ...prev, applicantName: event.target.value }))
+                }
+                placeholder="Nhập họ tên"
+              />
+
+              <label htmlFor="applicant-phone-home">Số điện thoại</label>
+              <input
+                id="applicant-phone-home"
+                value={applyForm.applicantPhone}
+                onChange={(event) =>
+                  setApplyForm((prev) => ({ ...prev, applicantPhone: event.target.value }))
+                }
+                placeholder="Nhập số điện thoại"
+              />
+
+              <label htmlFor="applicant-email-home">Email</label>
+              <input
+                id="applicant-email-home"
+                value={applyForm.applicantEmail}
+                onChange={(event) =>
+                  setApplyForm((prev) => ({ ...prev, applicantEmail: event.target.value }))
+                }
+                placeholder="Nhập email"
+              />
+
+              <label htmlFor="applicant-note-home">Nội dung hồ sơ</label>
+              <textarea
+                id="applicant-note-home"
+                value={applyForm.note}
+                onChange={(event) =>
+                  setApplyForm((prev) => ({ ...prev, note: event.target.value }))
+                }
+                placeholder="Mô tả thông tin cần giải quyết"
+              />
+
+              <button type="submit">Gửi đơn</button>
+              {applyMessage && <p className="helper-text">{applyMessage}</p>}
+            </form>
+
+            <form className="status-form" onSubmit={checkStatus}>
+              <label htmlFor="hoso-home">Tra cứu trạng thái hồ sơ</label>
+              <input
+                id="hoso-home"
+                value={applicationId}
+                onChange={(event) => setApplicationId(event.target.value)}
+                placeholder="Nhập mã hồ sơ"
+              />
+              <button type="submit">Tra cứu</button>
+              {applicationStatus && (
+                <div className="status-result">
+                  {applicationStatus.message ??
+                    `Trạng thái: ${formatApplicationStatus(applicationStatus.status)}`}
+                </div>
+              )}
+            </form>
+          </div>
+        </section>
+
+        <section className="panel reveal">
+          <h3>Thư viện hình ảnh và video</h3>
+          <div className="chip-group">
+            <button
+              type="button"
+              className={mediaFilter === 'All' ? 'chip is-active' : 'chip'}
+              onClick={() => setMediaFilter('All')}
+            >
+              Tất cả
+            </button>
+            <button
+              type="button"
+              className={mediaFilter === 'Image' ? 'chip is-active' : 'chip'}
+              onClick={() => setMediaFilter('Image')}
+            >
+              Hình ảnh
+            </button>
+            <button
+              type="button"
+              className={mediaFilter === 'Video' ? 'chip is-active' : 'chip'}
+              onClick={() => setMediaFilter('Video')}
+            >
+              Video
+            </button>
+          </div>
+          <div className="gallery">
+            {filteredMedia.map((item) => (
+              <article key={item.id}>
+                {item.type === 'Video' ? (
+                  <iframe src={item.url} title={item.title} allowFullScreen />
+                ) : (
+                  <img src={item.url} alt={item.title} />
+                )}
+                <p>{item.title}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel contact-grid reveal">
+          <div>
+            <h3>Liên hệ UBND xã</h3>
+            <p>Địa chỉ: Xã Tân Thuận Đông, TP Cao Lãnh, Đồng Tháp</p>
+            <p>Điện thoại: 0277 3 888 999</p>
+            <p>Email: ubnd.tanthuanadong@dongthap.gov.vn</p>
+          </div>
+          <iframe
+            title="Google Maps"
+            src="https://www.google.com/maps?q=Cao%20Lanh%20Dong%20Thap&output=embed"
+            loading="lazy"
+          />
+        </section>
+      </>
+    )
+  }
+
   return (
-    <div className="portal-shell">
-      <header className="topbar">
-        <h2>Tan Thuan Dong Portal</h2>
+    <div id="trang-chu" className="portal-shell">
+      <section className="civic-banner reveal">
+        <div className="civic-banner-copy">
+          <p className="eyebrow">TRANG THÔNG TIN ĐIỆN TỬ</p>
+          <h1>PHƯỜNG/XÃ TÂN THUẬN ĐÔNG</h1>
+          <p>
+            Giữ vững đoàn kết - Phát huy nội lực - Nâng cao năng lực lãnh đạo -
+            Xây dựng địa phương văn minh, hiện đại, đáng sống.
+          </p>
+        </div>
+        <div className="civic-banner-media">
+          <img
+            src="https://images.unsplash.com/photo-1473448912268-2022ce9509d8?auto=format&fit=crop&w=1400&q=80"
+            alt="Toàn cảnh cầu và đô thị ven sông"
+            loading="lazy"
+          />
+        </div>
+      </section>
+
+      <div className="gov-strip reveal">
+        <span>UBND XÃ TÂN THUẬN ĐÔNG - CỔNG THÔNG TIN ĐIỆN TỬ</span>
+        <span>Đường dây nóng: 0277 3 888 999</span>
+        <span>{clockText || 'Đang cập nhật thời gian...'}</span>
+      </div>
+
+      <header className="topbar portal-topbar reveal">
+        <div className="brand-block">
+          <div className="crest">UB</div>
+          <div>
+            <h2>Cổng thông tin xã Tân Thuận Đông</h2>
+            <p>Nền hành chính phục vụ người dân và doanh nghiệp</p>
+          </div>
+        </div>
         <nav>
-          <a href="#gioi-thieu">Gioi thieu</a>
-          <a href="#tin-tuc">Tin tuc</a>
-          <a href="#dich-vu">Dich vu hanh chinh</a>
-          <a href="#thu-vien">Thu vien</a>
-          <a href="#lien-he">Lien he</a>
+          {PORTAL_NAV_ITEMS.map((item) => (
+            <NavLink
+              key={item.key}
+              to={item.to}
+              end={item.to === '/portal'}
+              className={({ isActive }) => (isActive ? 'is-active-link' : '')}
+            >
+              {item.label}
+            </NavLink>
+          ))}
         </nav>
       </header>
 
-      <section className="hero-section">
-        <div className="hero-copy">
-          <p className="eyebrow">Trang nguoi dung</p>
-          <h1>{home?.bannerTitle ?? 'Dang tai du lieu...'}</h1>
-          <p>{home?.commune ?? 'Thong tin tong quan xa Tan Thuan Dong.'}</p>
-          <div className="hero-actions">
-            <a href="#tin-tuc" className="btn-primary">
-              Xem tin noi bat
-            </a>
-            <a href="#dich-vu" className="btn-outline">
-              Thu tuc nhanh
-            </a>
-          </div>
-        </div>
-        <div className="hero-side">
-          <figure className="hero-media">
-            <img
-              src="https://images.unsplash.com/photo-1472653525502-f9c3c7f4f2c8?auto=format&fit=crop&w=1200&q=80"
-              alt="Canh quan nong nghiep tai Dong Thap"
-              loading="lazy"
-            />
-          </figure>
-          <div className="stats">
-            <article>
-              <strong>{home?.statistics?.Population ?? '--'}</strong>
-              <span>Dan so</span>
-            </article>
-            <article>
-              <strong>{home?.statistics?.AreaKm2 ?? '--'}</strong>
-              <span>Dien tich km2</span>
-            </article>
-            <article>
-              <strong>{home?.statistics?.OnlineApplications ?? '--'}</strong>
-              <span>Ho so truc tuyen</span>
-            </article>
-            <article>
-              <strong>{home?.statistics?.ActiveServices ?? '--'}</strong>
-              <span>Dich vu dang mo</span>
-            </article>
-          </div>
-        </div>
+      <section className="portal-breadcrumb reveal" aria-label="Điều hướng trang">
+        <span>Trang chủ</span>
+        <strong>{PORTAL_PAGE_TITLES[activeSection] ?? 'Trang chủ'}</strong>
       </section>
 
-      <section id="gioi-thieu" className="panel">
-        <div className="intro-layout">
-          <div>
-            <h3>Gioi thieu dia phuong</h3>
-            <p>
-              Tan Thuan Dong co vi tri thuan loi ket noi trung tam thanh pho Cao Lanh,
-              phat trien nong nghiep cong nghe cao va dich vu thuong mai nong thon.
-            </p>
-          </div>
-          <figure>
-            <img
-              src="https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1000&q=80"
-              alt="Mo hinh canh tac hien dai"
-              loading="lazy"
-            />
-          </figure>
-        </div>
+      <section className="notice-bar reveal" aria-label="Thông báo mới">
+        <p>
+          <strong>Thông báo:</strong> Chuyển đổi số cấp xã đang được đẩy mạnh. Người dân ưu tiên nộp
+          hồ sơ trực tuyến và theo dõi tiến độ qua mã hồ sơ.
+        </p>
       </section>
 
-      <section id="tin-tuc" className="panel">
-        <h3>Tin tuc noi bat</h3>
-        <div className="chip-group">
-          {newsCategories.map((category) => (
-            <button
-              key={category}
-              type="button"
-              className={newsFilter === category ? 'chip is-active' : 'chip'}
-              onClick={() => setNewsFilter(category)}
-            >
-              {category}
-            </button>
-          ))}
-        </div>
-        <div className="grid-3">
-          {filteredNews.map((item) => (
-            <article key={item.id} className="news-card">
-              <img src={item.thumbnailUrl} alt={item.title} />
-              <div>
-                <small>{item.category}</small>
-                <h4>{item.title}</h4>
-                <p>{item.summary}</p>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section id="dich-vu" className="panel">
-        <h3>Dich vu hanh chinh</h3>
-        <div className="service-table">
-          {services.map((service) => (
-            <article key={service.id}>
-              <h4>
-                {service.code} - {service.name}
-              </h4>
-              <p>{service.description}</p>
-              <p>
-                Bieu mau: <a href={service.formUrl}>Tai xuong</a>
-              </p>
-            </article>
-          ))}
-        </div>
-
-        <div className="service-actions-grid">
-          <form className="application-form" onSubmit={applyService}>
-            <h4>Gui don truc tiep tren web</h4>
-            <label htmlFor="service-id">Thu tuc</label>
-            <select
-              id="service-id"
-              value={applyForm.serviceProcedureId}
-              onChange={(event) =>
-                setApplyForm((prev) => ({ ...prev, serviceProcedureId: event.target.value }))
-              }
-            >
-              {services.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.code} - {item.name}
-                </option>
-              ))}
-            </select>
-
-            <label htmlFor="applicant-name">Ho ten</label>
-            <input
-              id="applicant-name"
-              value={applyForm.applicantName}
-              onChange={(event) =>
-                setApplyForm((prev) => ({ ...prev, applicantName: event.target.value }))
-              }
-              placeholder="Nhap ho ten"
-            />
-
-            <label htmlFor="applicant-phone">So dien thoai</label>
-            <input
-              id="applicant-phone"
-              value={applyForm.applicantPhone}
-              onChange={(event) =>
-                setApplyForm((prev) => ({ ...prev, applicantPhone: event.target.value }))
-              }
-              placeholder="Nhap so dien thoai"
-            />
-
-            <label htmlFor="applicant-email">Email</label>
-            <input
-              id="applicant-email"
-              value={applyForm.applicantEmail}
-              onChange={(event) =>
-                setApplyForm((prev) => ({ ...prev, applicantEmail: event.target.value }))
-              }
-              placeholder="Nhap email"
-            />
-
-            <label htmlFor="applicant-note">Noi dung ho so</label>
-            <textarea
-              id="applicant-note"
-              value={applyForm.note}
-              onChange={(event) => setApplyForm((prev) => ({ ...prev, note: event.target.value }))}
-              placeholder="Mo ta thong tin can giai quyet"
-            />
-
-            <button type="submit">Gui don</button>
-            {applyMessage && <p className="helper-text">{applyMessage}</p>}
-          </form>
-
-          <form className="status-form" onSubmit={checkStatus}>
-            <label htmlFor="hoso">Tra cuu trang thai ho so</label>
-            <input
-              id="hoso"
-              value={applicationId}
-              onChange={(event) => setApplicationId(event.target.value)}
-              placeholder="Nhap ma ho so"
-            />
-            <button type="submit">Tra cuu</button>
-            {applicationStatus && (
-              <div className="status-result">
-                {applicationStatus.message ??
-                  `Trang thai: ${formatApplicationStatus(applicationStatus.status)}`}
-              </div>
-            )}
-          </form>
-        </div>
-      </section>
-
-      <section id="thu-vien" className="panel">
-        <h3>Thu vien hinh anh va video</h3>
-        <div className="chip-group">
-          <button
-            type="button"
-            className={mediaFilter === 'All' ? 'chip is-active' : 'chip'}
-            onClick={() => setMediaFilter('All')}
-          >
-            Tat ca
-          </button>
-          <button
-            type="button"
-            className={mediaFilter === 'Image' ? 'chip is-active' : 'chip'}
-            onClick={() => setMediaFilter('Image')}
-          >
-            Hinh anh
-          </button>
-          <button
-            type="button"
-            className={mediaFilter === 'Video' ? 'chip is-active' : 'chip'}
-            onClick={() => setMediaFilter('Video')}
-          >
-            Video
-          </button>
-        </div>
-        <div className="gallery">
-          {filteredMedia.map((item) => (
-            <article key={item.id}>
-              {item.type === 'Video' ? (
-                <iframe src={item.url} title={item.title} allowFullScreen />
-              ) : (
-                <img src={item.url} alt={item.title} />
-              )}
-              <p>{item.title}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section id="lien-he" className="panel contact-grid">
-        <div>
-          <h3>Lien he UBND xa</h3>
-          <p>Dia chi: Xa Tan Thuan Dong, TP Cao Lanh, Dong Thap</p>
-          <p>Dien thoai: 0277 3 888 999</p>
-          <p>Email: ubnd.tanthuanadong@dongthap.gov.vn</p>
-        </div>
-        <iframe
-          title="Google map"
-          src="https://www.google.com/maps?q=Cao%20Lanh%20Dong%20Thap&output=embed"
-          loading="lazy"
-        />
-      </section>
+      {renderPortalPage()}
     </div>
   )
 }
@@ -462,6 +825,7 @@ function UserPortal() {
 function AdminPortal() {
   const [email, setEmail] = useState('admin@tanthuanadong.gov.vn')
   const [password, setPassword] = useState('Admin@123')
+  const [adminNow, setAdminNow] = useState('')
   const [error, setError] = useState('')
   const [dashboard, setDashboard] = useState(null)
   const [applications, setApplications] = useState([])
@@ -493,6 +857,26 @@ function AdminPortal() {
     description: '',
   })
   const token = tokenStore.get()
+
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date()
+      setAdminNow(
+        now.toLocaleString('vi-VN', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        }),
+      )
+    }
+
+    tick()
+    const timer = window.setInterval(tick, 1000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     if (!token) {
@@ -530,14 +914,14 @@ function AdminPortal() {
       }
 
       if (dashRes.status === 'rejected' || appRes.status === 'rejected') {
-        setError('Khong tai duoc du lieu dashboard')
+        setError('Không tải được dữ liệu dashboard')
       } else {
         setError('')
       }
     }
 
     load().catch(() => {
-      setError('Khong tai duoc du lieu dashboard')
+      setError('Không tải được dữ liệu dashboard')
     })
   }, [token])
 
@@ -549,7 +933,7 @@ function AdminPortal() {
       labels,
       datasets: [
         {
-          label: 'Ho so truc tuyen',
+          label: 'Hồ sơ trực tuyến',
           data: values,
           backgroundColor: '#e67839',
           borderRadius: 8,
@@ -616,7 +1000,7 @@ function AdminPortal() {
       window.location.reload()
     } catch (error) {
       const message = error?.response?.data?.message
-      setError(message || 'Dang nhap that bai')
+      setError(message || 'Đăng nhập thất bại')
     }
   }
 
@@ -631,9 +1015,9 @@ function AdminPortal() {
     try {
       await adminApi.updateApplicationStatus(applicationId, { status })
       await reloadAdminData()
-      setAdminMessage('Da cap nhat trang thai ho so thanh cong.')
+      setAdminMessage('Đã cập nhật trạng thái hồ sơ thành công.')
     } catch (updateError) {
-      setAdminMessage(updateError?.response?.data?.message ?? 'Khong cap nhat duoc trang thai.')
+      setAdminMessage(updateError?.response?.data?.message ?? 'Không cập nhật được trạng thái.')
     }
   }
 
@@ -642,7 +1026,7 @@ function AdminPortal() {
     setAdminMessage('')
 
     if (!articleForm.categoryId) {
-      setAdminMessage('Vui long tao danh muc truoc khi dang bai.')
+      setAdminMessage('Vui lòng tạo danh mục trước khi đăng bài.')
       return
     }
 
@@ -659,9 +1043,9 @@ function AdminPortal() {
         thumbnailUrl: '',
       }))
       await reloadAdminData()
-      setAdminMessage('Da dang bai viet thanh cong.')
+      setAdminMessage('Đã đăng bài viết thành công.')
     } catch (submitError) {
-      setAdminMessage(submitError?.response?.data?.message ?? 'Khong dang duoc bai viet.')
+      setAdminMessage(submitError?.response?.data?.message ?? 'Không đăng được bài viết.')
     }
   }
 
@@ -670,7 +1054,7 @@ function AdminPortal() {
     setAdminMessage('')
 
     if (!categoryForm.name.trim()) {
-      setAdminMessage('Ten danh muc la bat buoc.')
+      setAdminMessage('Tên danh mục là bắt buộc.')
       return
     }
 
@@ -683,9 +1067,9 @@ function AdminPortal() {
       })
       await reloadAdminData()
       setArticleForm((prev) => ({ ...prev, categoryId: String(created.id) }))
-      setAdminMessage('Da tao danh muc moi.')
+      setAdminMessage('Đã tạo danh mục mới.')
     } catch (submitError) {
-      setAdminMessage(submitError?.response?.data?.message ?? 'Khong tao duoc danh muc.')
+      setAdminMessage(submitError?.response?.data?.message ?? 'Không tạo được danh mục.')
     }
   }
 
@@ -694,9 +1078,9 @@ function AdminPortal() {
     try {
       await adminApi.updateArticlePublish(id, { isPublished: !isPublished })
       await reloadAdminData()
-      setAdminMessage('Da cap nhat trang thai bai viet.')
+      setAdminMessage('Đã cập nhật trạng thái bài viết.')
     } catch (toggleError) {
-      setAdminMessage(toggleError?.response?.data?.message ?? 'Khong cap nhat duoc bai viet.')
+      setAdminMessage(toggleError?.response?.data?.message ?? 'Không cập nhật được bài viết.')
     }
   }
 
@@ -713,13 +1097,13 @@ function AdminPortal() {
         role: 'Viewer',
       })
       await reloadAdminData()
-      setAdminMessage('Da tao nguoi dung moi.')
+      setAdminMessage('Đã tạo người dùng mới.')
     } catch (submitError) {
       const errors = submitError?.response?.data?.errors
       if (Array.isArray(errors)) {
         setAdminMessage(errors.join(' | '))
       } else {
-        setAdminMessage(submitError?.response?.data?.message ?? 'Khong tao duoc nguoi dung.')
+        setAdminMessage(submitError?.response?.data?.message ?? 'Không tạo được người dùng.')
       }
     }
   }
@@ -729,9 +1113,9 @@ function AdminPortal() {
     try {
       await adminApi.updateUserActive(userId, { isActive: !isActive })
       await reloadAdminData()
-      setAdminMessage('Da cap nhat trang thai tai khoan.')
+      setAdminMessage('Đã cập nhật trạng thái tài khoản.')
     } catch (toggleError) {
-      setAdminMessage(toggleError?.response?.data?.message ?? 'Khong cap nhat duoc tai khoan.')
+      setAdminMessage(toggleError?.response?.data?.message ?? 'Không cập nhật được tài khoản.')
     }
   }
 
@@ -739,15 +1123,25 @@ function AdminPortal() {
     return (
       <main className="admin-auth">
         <form className="login-box" onSubmit={login}>
-          <h2>Dang nhap quan tri</h2>
-          <input value={email} onChange={(event) => setEmail(event.target.value)} />
+          <h2>Đăng nhập quản trị</h2>
+          <p className="login-subtitle">Hệ thống quản lý nội dung và dịch vụ công trực tuyến</p>
+          <label htmlFor="admin-email">Email quản trị</label>
           <input
+            id="admin-email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="Nhập email quản trị"
+          />
+          <label htmlFor="admin-password">Mật khẩu</label>
+          <input
+            id="admin-password"
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
+            placeholder="Nhập mật khẩu"
           />
           {error && <p className="error-text">{error}</p>}
-          <button type="submit">Dang nhap</button>
+          <button type="submit">Đăng nhập</button>
         </form>
       </main>
     )
@@ -755,75 +1149,81 @@ function AdminPortal() {
 
   return (
     <main className="admin-shell">
+      <section className="admin-meta-strip">
+        <span>Phiên đăng nhập: Admin</span>
+        <span>Trạng thái hệ thống: Hoạt động ổn định</span>
+        <span>{adminNow || 'Đang cập nhật thời gian...'}</span>
+      </section>
+
       <header className="admin-header">
         <div>
-          <p className="eyebrow">Trang quan tri</p>
-          <h1>Admin Dashboard - Xa Tan Thuan Dong</h1>
-          <p>Theo doi ho so, tinh trang dich vu va du lieu hoat dong theo thoi gian thuc.</p>
+          <p className="eyebrow">Trang quản trị</p>
+          <h1>Admin Dashboard - Xã Tân Thuận Đông</h1>
+          <p>Theo dõi hồ sơ, tình trạng dịch vụ và dữ liệu hoạt động theo thời gian thực.</p>
         </div>
         <div className="admin-header-actions">
           <img
             src="https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=900&q=80"
-            alt="Khong gian lam viec quan tri"
+            alt="Không gian làm việc quản trị"
             loading="lazy"
           />
-          <button onClick={logout}>Dang xuat</button>
+          <button onClick={logout}>Đăng xuất</button>
         </div>
       </header>
 
-      <section className="admin-cards">
+      <section className="admin-cards admin-block">
         <article>
           <strong>{dashboard?.totalUsers ?? 0}</strong>
-          <span>Nguoi dung</span>
+          <span>Người dùng</span>
         </article>
         <article>
           <strong>{dashboard?.totalArticles ?? 0}</strong>
-          <span>Bai viet</span>
+          <span>Bài viết</span>
         </article>
         <article>
           <strong>{dashboard?.totalServices ?? 0}</strong>
-          <span>Thu tuc</span>
+          <span>Thủ tục</span>
         </article>
         <article>
           <strong>{dashboard?.totalApplications ?? 0}</strong>
-          <span>Ho so</span>
+          <span>Hồ sơ</span>
         </article>
       </section>
 
-      <section className="admin-chart">
-        <h3>Thong ke ho so 6 thang</h3>
+      <section className="admin-chart admin-block">
+        <h3>Thống kê hồ sơ 6 tháng</h3>
         <Bar data={chartData} />
       </section>
 
-      <section className="panel admin-tabs">
+      <section className="panel admin-tabs admin-block">
         <button
           type="button"
           className={activeAdminTab === 'applications' ? 'chip is-active' : 'chip'}
           onClick={() => setActiveAdminTab('applications')}
         >
-          Quan ly ho so
+          Quản lý hồ sơ
         </button>
         <button
           type="button"
           className={activeAdminTab === 'articles' ? 'chip is-active' : 'chip'}
           onClick={() => setActiveAdminTab('articles')}
         >
-          Quan ly bai viet
+          Quản lý bài viết
         </button>
         <button
           type="button"
           className={activeAdminTab === 'users' ? 'chip is-active' : 'chip'}
           onClick={() => setActiveAdminTab('users')}
         >
-          Quan ly nguoi dung
+          Quản lý người dùng
         </button>
       </section>
 
       {adminMessage && <p className="helper-text">{adminMessage}</p>}
 
       {activeAdminTab === 'applications' && (
-      <section className="admin-table">
-        <h3>Danh sach ho so</h3>
+      <section className="admin-table admin-block">
+        <h3>Danh sách hồ sơ</h3>
         <div className="chip-group">
           {applicationStatuses.map((status) => (
             <button
@@ -841,10 +1241,10 @@ function AdminPortal() {
           <thead>
             <tr>
               <th>ID</th>
-              <th>Nguoi nop</th>
-              <th>Dich vu</th>
-              <th>Trang thai</th>
-              <th>Cap nhat</th>
+              <th>Người nộp</th>
+              <th>Dịch vụ</th>
+              <th>Trạng thái</th>
+              <th>Cập nhật</th>
             </tr>
           </thead>
           <tbody>
@@ -872,7 +1272,7 @@ function AdminPortal() {
                       ))}
                     </select>
                     <button type="button" onClick={() => updateApplicationStatus(item.id)}>
-                      Luu
+                      Lưu
                     </button>
                   </div>
                 </td>
@@ -884,34 +1284,34 @@ function AdminPortal() {
       )}
 
       {activeAdminTab === 'articles' && (
-        <section className="admin-table">
-          <h3>Danh muc bai viet</h3>
+        <section className="admin-table admin-block">
+          <h3>Danh mục bài viết</h3>
           <form className="admin-form admin-form-grid" onSubmit={submitCategory}>
             <input
               value={categoryForm.name}
               onChange={(event) =>
                 setCategoryForm((prev) => ({ ...prev, name: event.target.value }))
               }
-              placeholder="Ten danh muc"
+              placeholder="Tên danh mục"
             />
             <input
               value={categoryForm.slug}
               onChange={(event) =>
                 setCategoryForm((prev) => ({ ...prev, slug: event.target.value }))
               }
-              placeholder="Slug (tu dong neu bo trong)"
+              placeholder="Slug (tự động nếu bỏ trống)"
             />
             <input
               value={categoryForm.description}
               onChange={(event) =>
                 setCategoryForm((prev) => ({ ...prev, description: event.target.value }))
               }
-              placeholder="Mo ta ngan"
+              placeholder="Mô tả ngắn"
             />
-            <button type="submit">Them danh muc</button>
+            <button type="submit">Thêm danh mục</button>
           </form>
 
-          <h3>Dang bai viet moi</h3>
+          <h3>Đăng bài viết mới</h3>
           <form className="admin-form" onSubmit={submitArticle}>
             <select
               value={articleForm.categoryId}
@@ -919,7 +1319,7 @@ function AdminPortal() {
                 setArticleForm((prev) => ({ ...prev, categoryId: event.target.value }))
               }
             >
-              {categories.length === 0 && <option value="">Chua co danh muc</option>}
+              {categories.length === 0 && <option value="">Chưa có danh mục</option>}
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
@@ -929,24 +1329,24 @@ function AdminPortal() {
             <input
               value={articleForm.title}
               onChange={(event) => setArticleForm((prev) => ({ ...prev, title: event.target.value }))}
-              placeholder="Tieu de bai viet"
+              placeholder="Tiêu đề bài viết"
             />
             <input
               value={articleForm.thumbnailUrl}
               onChange={(event) =>
                 setArticleForm((prev) => ({ ...prev, thumbnailUrl: event.target.value }))
               }
-              placeholder="Link hinh dai dien"
+              placeholder="Link hình đại diện"
             />
             <textarea
               value={articleForm.summary}
               onChange={(event) => setArticleForm((prev) => ({ ...prev, summary: event.target.value }))}
-              placeholder="Tom tat"
+              placeholder="Tóm tắt"
             />
             <textarea
               value={articleForm.content}
               onChange={(event) => setArticleForm((prev) => ({ ...prev, content: event.target.value }))}
-              placeholder="Noi dung bai viet"
+              placeholder="Nội dung bài viết"
             />
             <label className="checkbox-row">
               <input
@@ -956,22 +1356,22 @@ function AdminPortal() {
                   setArticleForm((prev) => ({ ...prev, isPublished: event.target.checked }))
                 }
               />
-              Dang cong khai
+              Đăng công khai
             </label>
             <button type="submit" disabled={categories.length === 0}>
-              Dang bai
+              Đăng bài
             </button>
           </form>
 
-          <h3>Danh sach bai viet</h3>
+          <h3>Danh sách bài viết</h3>
           <table>
             <thead>
               <tr>
                 <th>ID</th>
-                <th>Tieu de</th>
-                <th>Danh muc</th>
-                <th>Trang thai</th>
-                <th>Hanh dong</th>
+                <th>Tiêu đề</th>
+                <th>Danh mục</th>
+                <th>Trạng thái</th>
+                <th>Hành động</th>
               </tr>
             </thead>
             <tbody>
@@ -980,13 +1380,13 @@ function AdminPortal() {
                   <td>{item.id}</td>
                   <td>{item.title}</td>
                   <td>{item.categoryName}</td>
-                  <td>{item.isPublished ? 'Da dang' : 'Ban nhap'}</td>
+                  <td>{item.isPublished ? 'Đã đăng' : 'Bản nháp'}</td>
                   <td>
                     <button
                       type="button"
                       onClick={() => toggleArticlePublish(item.id, item.isPublished)}
                     >
-                      {item.isPublished ? 'An bai' : 'Dang lai'}
+                      {item.isPublished ? 'Ẩn bài' : 'Đăng lại'}
                     </button>
                   </td>
                 </tr>
@@ -997,13 +1397,13 @@ function AdminPortal() {
       )}
 
       {activeAdminTab === 'users' && (
-        <section className="admin-table">
-          <h3>Tao nguoi dung moi</h3>
+        <section className="admin-table admin-block">
+          <h3>Tạo người dùng mới</h3>
           <form className="admin-form admin-form-grid" onSubmit={submitUser}>
             <input
               value={userForm.fullName}
               onChange={(event) => setUserForm((prev) => ({ ...prev, fullName: event.target.value }))}
-              placeholder="Ho ten"
+              placeholder="Họ tên"
             />
             <input
               value={userForm.email}
@@ -1015,13 +1415,13 @@ function AdminPortal() {
               onChange={(event) =>
                 setUserForm((prev) => ({ ...prev, phoneNumber: event.target.value }))
               }
-              placeholder="So dien thoai"
+              placeholder="Số điện thoại"
             />
             <input
               type="password"
               value={userForm.password}
               onChange={(event) => setUserForm((prev) => ({ ...prev, password: event.target.value }))}
-              placeholder="Mat khau"
+              placeholder="Mật khẩu"
             />
             <select
               value={userForm.role}
@@ -1031,18 +1431,18 @@ function AdminPortal() {
               <option value="Editor">Editor</option>
               <option value="Viewer">Viewer</option>
             </select>
-            <button type="submit">Tao tai khoan</button>
+            <button type="submit">Tạo tài khoản</button>
           </form>
 
-          <h3>Danh sach nguoi dung</h3>
+          <h3>Danh sách người dùng</h3>
           <table>
             <thead>
               <tr>
-                <th>Ho ten</th>
+                <th>Họ tên</th>
                 <th>Email</th>
-                <th>Vai tro</th>
-                <th>Trang thai</th>
-                <th>Hanh dong</th>
+                <th>Vai trò</th>
+                <th>Trạng thái</th>
+                <th>Hành động</th>
               </tr>
             </thead>
             <tbody>
@@ -1051,10 +1451,10 @@ function AdminPortal() {
                   <td>{user.fullName}</td>
                   <td>{user.email}</td>
                   <td>{Array.isArray(user.roles) ? user.roles.join(', ') : ''}</td>
-                  <td>{user.isActive ? 'Dang hoat dong' : 'Da khoa'}</td>
+                  <td>{user.isActive ? 'Đang hoạt động' : 'Đã khóa'}</td>
                   <td>
                     <button type="button" onClick={() => toggleUserActive(user.id, user.isActive)}>
-                      {user.isActive ? 'Khoa tai khoan' : 'Mo khoa'}
+                      {user.isActive ? 'Khóa tài khoản' : 'Mở khóa'}
                     </button>
                   </td>
                 </tr>
@@ -1071,7 +1471,15 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<GatewayPage />} />
-      <Route path="/portal" element={<UserPortal />} />
+      <Route path="/portal" element={<UserPortal activeSection="home" />} />
+      <Route path="/portal/gioi-thieu" element={<UserPortal activeSection="intro" />} />
+      <Route path="/portal/tin-tuc" element={<UserPortal activeSection="news" />} />
+      <Route
+        path="/portal/dich-vu-hanh-chinh"
+        element={<UserPortal activeSection="services" />}
+      />
+      <Route path="/portal/thu-vien" element={<UserPortal activeSection="library" />} />
+      <Route path="/portal/lien-he" element={<UserPortal activeSection="contact" />} />
       <Route path="/admin" element={<AdminPortal />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
