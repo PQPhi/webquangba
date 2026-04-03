@@ -226,6 +226,15 @@ button:active {
   align-items: center;
 }
 
+.site-logo {
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 2px solid #ffffff;
+  box-shadow: 0 8px 20px rgba(17, 47, 84, 0.3);
+}
+
 .brand-block p {
   margin: 0;
   color: var(--muted);
@@ -481,6 +490,22 @@ button:active {
   align-items: center;
 }
 
+.intro-detail-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.intro-detail-grid article {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  padding: 14px;
+}
+
+.intro-detail-grid h4 {
+  margin: 0 0 8px;
+  color: #0f4b84;
+}
+
 .intro-layout figure {
   margin: 0;
   border-radius: 14px;
@@ -499,6 +524,14 @@ button:active {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 14px;
+}
+
+.news-search-row {
+  margin-top: 10px;
+}
+
+.news-search-row input {
+  width: 100%;
 }
 
 .news-card {
@@ -530,6 +563,46 @@ button:active {
 
 .news-card p {
   font-size: 17px;
+}
+
+.news-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.news-actions button {
+  min-width: 130px;
+  animation: none;
+  font-size: 13px;
+  padding: 9px 12px;
+}
+
+.news-detail-card {
+  margin-top: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 18px;
+}
+
+.news-detail-card h5 {
+  margin: 14px 0 10px;
+  color: #0f4b84;
+}
+
+.comment-list {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.comment-list article {
+  border: 1px solid #d8e4f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #f7fbff;
 }
 
 .service-table {
@@ -651,6 +724,10 @@ button {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
+}
+
+.contact-grid .application-form {
+  margin-top: 14px;
 }
 
 .contact-grid iframe {

@@ -1,0 +1,11 @@
+﻿Invoke-RestMethod : The remote server returned an error: (500) Internal Server 
+Error.
+At line:1 char:645
++ ... n; $login = Invoke-RestMethod -Uri "$base/Auth/login" -Method Post -C ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (System.Net.HttpWebRequest:Htt 
+   pWebRequest) [Invoke-RestMethod], WebException
+    + FullyQualifiedErrorId : WebCmdletWebResponseException,Microsoft.PowerShe 
+   ll.Commands.InvokeRestMethodCommand
+ 
+

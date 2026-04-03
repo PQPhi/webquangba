@@ -11,6 +11,7 @@ import {
   Legend,
 } from 'chart.js'
 import { adminApi, authApi, publicApi, tokenStore } from './services/api'
+import heroImage from './assets/hero.png'
 import './App.css'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
@@ -55,6 +56,9 @@ const PORTAL_PAGE_TITLES = {
   library: 'Thư viện',
   contact: 'Liên hệ',
 }
+
+const SITE_LOGO_URL = '/uploads/logo-vietnam.jpg'
+const SITE_BANNER_URL = '/uploads/tan-thuan-dong-banner.jpg'
 
 function formatApplicationStatus(value) {
   if (typeof value === 'number') {
@@ -121,15 +125,26 @@ function GatewayPage() {
 
 function UserPortal({ activeSection }) {
   const [home, setHome] = useState(null)
+  const [introduction, setIntroduction] = useState(null)
   const [news, setNews] = useState([])
   const [services, setServices] = useState([])
   const [media, setMedia] = useState([])
+  const [selectedNewsId, setSelectedNewsId] = useState(null)
+  const [selectedNewsDetail, setSelectedNewsDetail] = useState(null)
+  const [newsKeyword, setNewsKeyword] = useState('')
   const [applicationStatus, setApplicationStatus] = useState(null)
   const [applicationId, setApplicationId] = useState('')
   const [newsFilter, setNewsFilter] = useState('All')
   const [mediaFilter, setMediaFilter] = useState('All')
+  const [mediaTopicFilter, setMediaTopicFilter] = useState('All')
   const [applyMessage, setApplyMessage] = useState('')
+  const [newsMessage, setNewsMessage] = useState('')
+  const [contactMessage, setContactMessage] = useState('')
   const [clockText, setClockText] = useState('')
+  const [commentForm, setCommentForm] = useState({
+    authorName: '',
+    content: '',
+  })
   const [applyForm, setApplyForm] = useState({
     serviceProcedureId: '',
     applicantName: '',
@@ -137,16 +152,23 @@ function UserPortal({ activeSection }) {
     applicantEmail: '',
     note: '',
   })
+  const [contactForm, setContactForm] = useState({
+    fullName: '',
+    phone: '',
+    message: '',
+  })
 
   useEffect(() => {
     const load = async () => {
-      const [homeRes, newsRes, serviceRes, mediaRes] = await Promise.all([
+      const [homeRes, introRes, newsRes, serviceRes, mediaRes] = await Promise.all([
         publicApi.getHome(),
+        publicApi.getIntroduction(),
         publicApi.getNews(),
         publicApi.getServices(),
         publicApi.getMedia(),
       ])
       setHome(homeRes)
+      setIntroduction(introRes)
       setNews(newsRes)
       setServices(serviceRes)
       setMedia(mediaRes)
@@ -211,26 +233,69 @@ function UserPortal({ activeSection }) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [activeSection])
 
+  async function loadNewsDetail(newsId) {
+    setSelectedNewsId(newsId)
+    setSelectedNewsDetail(null)
+    setNewsMessage('')
+
+    try {
+      const detail = await publicApi.getNewsDetail(newsId)
+      setSelectedNewsDetail(detail)
+    } catch {
+      setNewsMessage('Không tải được chi tiết bài viết.')
+    }
+  }
+
+  useEffect(() => {
+    if (activeSection !== 'news') {
+      return
+    }
+
+    const params = new URLSearchParams(window.location.search)
+    const newsIdFromUrl = Number(params.get('newsId'))
+    if (Number.isNaN(newsIdFromUrl) || newsIdFromUrl <= 0) {
+      return
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      void loadNewsDetail(newsIdFromUrl)
+    })
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+    }
+  }, [activeSection])
+
   const newsCategories = useMemo(() => {
     const categories = news.map((item) => item.category).filter(Boolean)
     return ['All', ...new Set(categories)]
   }, [news])
 
   const filteredNews = useMemo(() => {
-    if (newsFilter === 'All') {
-      return news
-    }
+    return news.filter((item) => {
+      const matchesCategory = newsFilter === 'All' || item.category === newsFilter
+      const keyword = newsKeyword.trim().toLowerCase()
+      const matchesKeyword =
+        !keyword ||
+        item.title?.toLowerCase().includes(keyword) ||
+        item.summary?.toLowerCase().includes(keyword)
 
-    return news.filter((item) => item.category === newsFilter)
-  }, [news, newsFilter])
+      return matchesCategory && matchesKeyword
+    })
+  }, [news, newsFilter, newsKeyword])
 
   const filteredMedia = useMemo(() => {
-    if (mediaFilter === 'All') {
-      return media
-    }
+    return media.filter((item) => {
+      const matchesType = mediaFilter === 'All' || item.type === mediaFilter
+      const matchesTopic = mediaTopicFilter === 'All' || item.topic === mediaTopicFilter
+      return matchesType && matchesTopic
+    })
+  }, [media, mediaFilter, mediaTopicFilter])
 
-    return media.filter((item) => item.type === mediaFilter)
-  }, [media, mediaFilter])
+  const mediaTopics = useMemo(() => {
+    const topics = media.map((item) => item.topic).filter(Boolean)
+    return ['All', ...new Set(topics)]
+  }, [media])
 
   const checkStatus = async (event) => {
     event.preventDefault()
@@ -275,23 +340,89 @@ function UserPortal({ activeSection }) {
     }
   }
 
+  const submitComment = async (event) => {
+    event.preventDefault()
+    setNewsMessage('')
+
+    if (!selectedNewsId || !commentForm.authorName.trim() || !commentForm.content.trim()) {
+      setNewsMessage('Vui lòng nhập họ tên và nội dung bình luận.')
+      return
+    }
+
+    try {
+      const result = await publicApi.addNewsComment(selectedNewsId, {
+        authorName: commentForm.authorName.trim(),
+        content: commentForm.content.trim(),
+      })
+      setNewsMessage(result.message ?? 'Đã gửi bình luận.')
+      setCommentForm({ authorName: '', content: '' })
+    } catch (error) {
+      setNewsMessage(error?.response?.data?.message ?? 'Không gửi được bình luận.')
+    }
+  }
+
+  const shareNews = async (newsId) => {
+    const targetUrl = `${window.location.origin}/portal/tin-tuc?newsId=${newsId}`
+    try {
+      await navigator.clipboard.writeText(targetUrl)
+      setNewsMessage('Đã sao chép liên kết bài viết để chia sẻ.')
+    } catch {
+      window.prompt('Sao chép liên kết bên dưới để chia sẻ:', targetUrl)
+    }
+  }
+
+  const submitContact = async (event) => {
+    event.preventDefault()
+    setContactMessage('')
+
+    if (!contactForm.fullName || !contactForm.phone || !contactForm.message) {
+      setContactMessage('Vui lòng nhập đủ thông tin phản ánh/kiến nghị.')
+      return
+    }
+
+    try {
+      const result = await publicApi.sendContact(contactForm)
+      setContactMessage(result.message)
+      setContactForm({ fullName: '', phone: '', message: '' })
+    } catch (error) {
+      setContactMessage(error?.response?.data?.message ?? 'Không gửi được phản ánh.')
+    }
+  }
+
   const renderPortalPage = () => {
     if (activeSection === 'intro') {
       return (
         <section className="panel reveal">
-          <div className="intro-layout">
-            <div>
-              <h3>Giới thiệu địa phương</h3>
-              <p>
-                Tân Thuận Đông có vị trí thuận lợi kết nối trung tâm thành phố Cao Lãnh,
-                phát triển nông nghiệp công nghệ cao và dịch vụ thương mại nông thôn.
-              </p>
-            </div>
+          <h3>Giới thiệu địa phương</h3>
+          <div className="intro-layout intro-detail-grid">
+            <article>
+              <h4>Lịch sử hình thành</h4>
+              <p>{introduction?.history ?? 'Đang cập nhật dữ liệu lịch sử địa phương.'}</p>
+            </article>
+            <article>
+              <h4>Vị trí địa lý</h4>
+              <p>{introduction?.location ?? 'Đang cập nhật vị trí địa lý.'}</p>
+            </article>
+            <article>
+              <h4>Điều kiện tự nhiên</h4>
+              <p>{introduction?.naturalConditions ?? 'Đang cập nhật điều kiện tự nhiên.'}</p>
+            </article>
+            <article>
+              <h4>Cơ cấu dân cư</h4>
+              <p>{introduction?.populationStructure ?? 'Đang cập nhật cơ cấu dân cư.'}</p>
+            </article>
+            <article>
+              <h4>Cơ sở hạ tầng</h4>
+              <p>{introduction?.infrastructure ?? 'Đang cập nhật hạ tầng địa phương.'}</p>
+            </article>
             <figure>
               <img
-                src="https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1000&q=80"
-                alt="Mô hình canh tác hiện đại"
+                src={SITE_BANNER_URL}
+                alt="Cảnh quan xã Tân Thuận Đông"
                 loading="lazy"
+                onError={(event) => {
+                  event.currentTarget.src = heroImage
+                }}
               />
             </figure>
           </div>
@@ -303,6 +434,13 @@ function UserPortal({ activeSection }) {
       return (
         <section className="panel reveal">
           <h3>Tin tức nổi bật</h3>
+          <div className="news-search-row">
+            <input
+              value={newsKeyword}
+              onChange={(event) => setNewsKeyword(event.target.value)}
+              placeholder="Tìm kiếm theo tiêu đề hoặc tóm tắt"
+            />
+          </div>
           <div className="chip-group">
             {newsCategories.map((category) => (
               <button
@@ -323,10 +461,59 @@ function UserPortal({ activeSection }) {
                   <small>{item.category}</small>
                   <h4>{item.title}</h4>
                   <p>{item.summary}</p>
+                  <div className="news-actions">
+                    <button type="button" onClick={() => loadNewsDetail(item.id)}>
+                      Xem chi tiết
+                    </button>
+                    <button type="button" onClick={() => shareNews(item.id)}>
+                      Chia sẻ
+                    </button>
+                  </div>
                 </div>
               </article>
             ))}
           </div>
+
+          {selectedNewsDetail && (
+            <article className="news-detail-card">
+              <h4>{selectedNewsDetail.title}</h4>
+              <p>{selectedNewsDetail.summary}</p>
+              <p>{selectedNewsDetail.content}</p>
+              <small>Lượt xem: {selectedNewsDetail.viewCount}</small>
+
+              <h5>Bình luận đã duyệt</h5>
+              <div className="comment-list">
+                {(selectedNewsDetail.comments ?? []).length === 0 && <p>Chưa có bình luận.</p>}
+                {(selectedNewsDetail.comments ?? []).map((comment, index) => (
+                  <article key={`${comment.authorName}-${index}`}>
+                    <strong>{comment.authorName}</strong>
+                    <p>{comment.content}</p>
+                  </article>
+                ))}
+              </div>
+
+              <form className="application-form" onSubmit={submitComment}>
+                <h5>Gửi bình luận</h5>
+                <input
+                  value={commentForm.authorName}
+                  onChange={(event) =>
+                    setCommentForm((prev) => ({ ...prev, authorName: event.target.value }))
+                  }
+                  placeholder="Họ tên"
+                />
+                <textarea
+                  value={commentForm.content}
+                  onChange={(event) =>
+                    setCommentForm((prev) => ({ ...prev, content: event.target.value }))
+                  }
+                  placeholder="Nhập nội dung bình luận"
+                />
+                <button type="submit">Gửi bình luận</button>
+              </form>
+            </article>
+          )}
+
+          {newsMessage && <p className="helper-text">{newsMessage}</p>}
         </section>
       )
     }
@@ -459,6 +646,18 @@ function UserPortal({ activeSection }) {
               Video
             </button>
           </div>
+          <div className="chip-group">
+            {mediaTopics.map((topic) => (
+              <button
+                key={topic}
+                type="button"
+                className={mediaTopicFilter === topic ? 'chip is-active' : 'chip'}
+                onClick={() => setMediaTopicFilter(topic)}
+              >
+                {topic === 'All' ? 'Mọi chủ đề' : topic}
+              </button>
+            ))}
+          </div>
           <div className="gallery">
             {filteredMedia.map((item) => (
               <article key={item.id}>
@@ -483,6 +682,32 @@ function UserPortal({ activeSection }) {
             <p>Địa chỉ: Xã Tân Thuận Đông, TP Cao Lãnh, Đồng Tháp</p>
             <p>Điện thoại: 0277 3 888 999</p>
             <p>Email: ubnd.tanthuanadong@dongthap.gov.vn</p>
+            <form className="application-form" onSubmit={submitContact}>
+              <h4>Phản ánh/kiến nghị trực tuyến</h4>
+              <input
+                value={contactForm.fullName}
+                onChange={(event) =>
+                  setContactForm((prev) => ({ ...prev, fullName: event.target.value }))
+                }
+                placeholder="Họ tên người gửi"
+              />
+              <input
+                value={contactForm.phone}
+                onChange={(event) =>
+                  setContactForm((prev) => ({ ...prev, phone: event.target.value }))
+                }
+                placeholder="Số điện thoại"
+              />
+              <textarea
+                value={contactForm.message}
+                onChange={(event) =>
+                  setContactForm((prev) => ({ ...prev, message: event.target.value }))
+                }
+                placeholder="Nội dung phản ánh hoặc kiến nghị"
+              />
+              <button type="submit">Gửi phản ánh</button>
+              {contactMessage && <p className="helper-text">{contactMessage}</p>}
+            </form>
           </div>
           <iframe
             title="Google Maps"
@@ -512,9 +737,12 @@ function UserPortal({ activeSection }) {
           <div className="hero-side">
             <figure className="hero-media">
               <img
-                src="https://images.unsplash.com/photo-1472653525502-f9c3c7f4f2c8?auto=format&fit=crop&w=1200&q=80"
+                src={SITE_BANNER_URL}
                 alt="Cảnh quan nông nghiệp tại Đồng Tháp"
                 loading="lazy"
+                onError={(event) => {
+                  event.currentTarget.src = heroImage
+                }}
               />
             </figure>
             <div className="stats">
@@ -561,16 +789,17 @@ function UserPortal({ activeSection }) {
           <div className="intro-layout">
             <div>
               <h3>Giới thiệu địa phương</h3>
-              <p>
-                Tân Thuận Đông có vị trí thuận lợi kết nối trung tâm thành phố Cao Lãnh,
-                phát triển nông nghiệp công nghệ cao và dịch vụ thương mại nông thôn.
-              </p>
+              <p>{introduction?.history ?? 'Tân Thuận Đông đang đẩy mạnh phát triển kinh tế số nông thôn.'}</p>
+              <p>{introduction?.location ?? 'Kết nối thuận lợi với trung tâm TP. Cao Lãnh.'}</p>
             </div>
             <figure>
               <img
-                src="https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1000&q=80"
+                src={SITE_BANNER_URL}
                 alt="Mô hình canh tác hiện đại"
                 loading="lazy"
+                onError={(event) => {
+                  event.currentTarget.src = heroImage
+                }}
               />
             </figure>
           </div>
@@ -770,9 +999,12 @@ function UserPortal({ activeSection }) {
         </div>
         <div className="civic-banner-media">
           <img
-            src="https://images.unsplash.com/photo-1473448912268-2022ce9509d8?auto=format&fit=crop&w=1400&q=80"
+            src={SITE_BANNER_URL}
             alt="Toàn cảnh cầu và đô thị ven sông"
             loading="lazy"
+            onError={(event) => {
+              event.currentTarget.src = heroImage
+            }}
           />
         </div>
       </section>
@@ -785,7 +1017,15 @@ function UserPortal({ activeSection }) {
 
       <header className="topbar portal-topbar reveal">
         <div className="brand-block">
-          <div className="crest">UB</div>
+          <img
+            className="site-logo"
+            src={SITE_LOGO_URL}
+            alt="Quốc huy Việt Nam"
+            loading="lazy"
+            onError={(event) => {
+              event.currentTarget.style.display = 'none'
+            }}
+          />
           <div>
             <h2>Cổng thông tin xã Tân Thuận Đông</h2>
             <p>Nền hành chính phục vụ người dân và doanh nghiệp</p>
@@ -844,6 +1084,7 @@ function AdminPortal() {
     thumbnailUrl: '',
     isPublished: true,
   })
+  const [editingArticleId, setEditingArticleId] = useState(null)
   const [userForm, setUserForm] = useState({
     fullName: '',
     email: '',
@@ -882,8 +1123,6 @@ function AdminPortal() {
     if (!token) {
       return
     }
-
-    setError('')
 
     const load = async () => {
       const [dashRes, appRes, userRes, articleRes, categoryRes] = await Promise.allSettled([
@@ -1000,7 +1239,11 @@ function AdminPortal() {
       window.location.reload()
     } catch (error) {
       const message = error?.response?.data?.message
-      setError(message || 'Đăng nhập thất bại')
+      const errorDetail = error?.response?.data?.detail
+      const errorResponse = error?.response?.data
+      const fullMessage = message || errorDetail || (typeof errorResponse === 'string' ? errorResponse : 'Đăng nhập thất bại')
+      setError(fullMessage)
+      console.error('Login error:', error)
     }
   }
 
@@ -1031,22 +1274,65 @@ function AdminPortal() {
     }
 
     try {
-      await adminApi.createArticle({
+      const payload = {
         ...articleForm,
         categoryId: Number(articleForm.categoryId),
-      })
+      }
+
+      if (editingArticleId) {
+        await adminApi.updateArticle(editingArticleId, payload)
+      } else {
+        await adminApi.createArticle(payload)
+      }
+
       setArticleForm((prev) => ({
         ...prev,
         title: '',
         summary: '',
         content: '',
         thumbnailUrl: '',
+        isPublished: true,
       }))
+      setEditingArticleId(null)
       await reloadAdminData()
-      setAdminMessage('Đã đăng bài viết thành công.')
+      setAdminMessage(editingArticleId ? 'Đã cập nhật bài viết thành công.' : 'Đã đăng bài viết thành công.')
     } catch (submitError) {
-      setAdminMessage(submitError?.response?.data?.message ?? 'Không đăng được bài viết.')
+      setAdminMessage(
+        submitError?.response?.data?.message ??
+          (editingArticleId ? 'Không cập nhật được bài viết.' : 'Không đăng được bài viết.'),
+      )
     }
+  }
+
+  const editArticle = async (articleId) => {
+    setAdminMessage('')
+    try {
+      const detail = await adminApi.getArticleDetail(articleId)
+      setArticleForm({
+        categoryId: String(detail.categoryId ?? ''),
+        title: detail.title ?? '',
+        summary: detail.summary ?? '',
+        content: detail.content ?? '',
+        thumbnailUrl: detail.thumbnailUrl ?? '',
+        isPublished: Boolean(detail.isPublished),
+      })
+      setEditingArticleId(articleId)
+    } catch (editError) {
+      setAdminMessage(editError?.response?.data?.message ?? 'Không tải được dữ liệu bài viết.')
+    }
+  }
+
+  const cancelEditArticle = () => {
+    setEditingArticleId(null)
+    setArticleForm((prev) => ({
+      ...prev,
+      title: '',
+      summary: '',
+      content: '',
+      thumbnailUrl: '',
+      isPublished: true,
+    }))
+    setAdminMessage('Đã hủy chế độ chỉnh sửa bài viết.')
   }
 
   const submitCategory = async (event) => {
@@ -1311,7 +1597,7 @@ function AdminPortal() {
             <button type="submit">Thêm danh mục</button>
           </form>
 
-          <h3>Đăng bài viết mới</h3>
+          <h3>{editingArticleId ? `Chỉnh sửa bài viết #${editingArticleId}` : 'Đăng bài viết mới'}</h3>
           <form className="admin-form" onSubmit={submitArticle}>
             <select
               value={articleForm.categoryId}
@@ -1359,8 +1645,13 @@ function AdminPortal() {
               Đăng công khai
             </label>
             <button type="submit" disabled={categories.length === 0}>
-              Đăng bài
+              {editingArticleId ? 'Lưu chỉnh sửa' : 'Đăng bài'}
             </button>
+            {editingArticleId && (
+              <button type="button" onClick={cancelEditArticle}>
+                Hủy sửa
+              </button>
+            )}
           </form>
 
           <h3>Danh sách bài viết</h3>
@@ -1382,6 +1673,9 @@ function AdminPortal() {
                   <td>{item.categoryName}</td>
                   <td>{item.isPublished ? 'Đã đăng' : 'Bản nháp'}</td>
                   <td>
+                    <button type="button" onClick={() => editArticle(item.id)}>
+                      Sửa
+                    </button>
                     <button
                       type="button"
                       onClick={() => toggleArticlePublish(item.id, item.isPublished)}

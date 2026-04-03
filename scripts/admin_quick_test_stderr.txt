@@ -1,0 +1,9 @@
+Khong lay duoc token login tu ca password va matKhau
+At D:\Git\webquangba\scripts\admin_quick_browser_test.ps1:29 char:3
++   throw 'Khong lay duoc token login tu ca password va matKhau'
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (Khong lay duoc ...word va mat 
+   Khau:String) [], RuntimeException
+    + FullyQualifiedErrorId : Khong lay duoc token login tu ca password va mat 
+   Khau
+ 

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("TanThuanDong.Application")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9f19c11bcc43e8024db5b61ecbe1314219512051")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a9900d845b984c0e86add3e2bd9e8e165f0cf780")]
 [assembly: System.Reflection.AssemblyProductAttribute("TanThuanDong.Application")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TanThuanDong.Application")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
